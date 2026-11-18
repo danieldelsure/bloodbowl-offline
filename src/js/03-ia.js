@@ -655,7 +655,7 @@ class AI2 extends AI {
     const strong = AI2.f.adv === 2, hold = this.holdScore(c);
     const marked = AI2.f.dodge && markersAt(c.x, c.y, this.t).length > 0;   // portador marcado: vale la pena un dodge
     const urg = this.urgent(), thr = marked ? Math.max(0.4, 0.62 - 0.12 * this.aggr()) : urg ? (TURNS - G.turn[this.t] <= 1 ? 0.6 : 0.8) : 0.95;
-    const val = (x, y, prob) => { const sp = this.support(x, y, reach, c); return -Math.abs(gx - x) * (last ? 3 : urg ? 2.4 : 1.15) - this.exposure(x, y, c) * (urg ? 0.5 : 1) + (strong && !last ? 2.6 * sp - (sp < 2 ? 5 : 0) : 1.3 * sp) - (prob < 0.999 ? 3 + (marked ? (1 - prob) * 10 : 0) : 0) + (x === gx ? 100 : 0) - (hold && Math.abs(gx - x) < 3 ? 1000 : 0); };
+    const val = (x, y, prob) => { const sp = this.support(x, y, reach, c); return -Math.abs(gx - x) * (last ? 3 : urg ? 2.4 : AI2.f.advW) - this.exposure(x, y, c) * (urg ? 0.5 : AI2.f.expW) + (strong && !last ? 2.6 * sp - (sp < 2 ? 5 : 0) : 1.3 * sp) - (prob < 0.999 ? 3 + (marked ? (1 - prob) * 10 : 0) : 0) + (x === gx ? 100 : 0) - (hold && Math.abs(gx - x) < 3 ? 1000 : 0); };
     let best = null, bs = val(c.x, c.y, 1);
     for (const n of mv.values()) {
       if (n.prob < thr) continue;
@@ -701,6 +701,6 @@ class AI2 extends AI {
     await this.doBlocks(1);
   }
 }
-AI2.v = 0; AI2.f = { pcost: 2.5, foul: 1, foulMin: 0.45, def: 1, kick: 0, adv: 1, dodge: 1, free: 2, rush: 1, thr: 1, runner: 1, pass: 1 };
+AI2.v = 0; AI2.f = { pcost: 2.5, advW: 1.15, expW: 1, foul: 1, foulMin: 0.45, def: 1, kick: 0, adv: 1, dodge: 1, free: 2, rush: 1, thr: 1, runner: 1, pass: 1 };
 class AI2b extends AI2 {}
 
