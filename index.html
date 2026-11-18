@@ -1581,6 +1581,8 @@ class AI {
     return new Set(this.avail().filter(p => p !== c && p.state === 'standing').sort((a, b) => cheb(a.x, a.y, c.x, c.y) - cheb(b.x, b.y, c.x, c.y)).slice(0, 3));
   }
   passMin(last) { return last ? 0.05 : 0.5; }
+  async tryPassAdvance() { return false; }   // AI2: entregas y pases cortos para mover el balón con equipos lentos
+  carrierFit() { return 0; }   // AI2: quién conviene que lleve el balón, a igualdad de probabilidad de recogerlo
   carrierThreat() { return 0; }   // AI2 lo sobreescribe: peso de un rival que puede tumbar a mi portador
   holdScore() { return false; }
   /* último turno de la mitad y no hay forma razonable de anotar: todo a pegar */
@@ -1847,7 +1849,7 @@ class AI {
         const node = computeMoves(p).get(bi); if (!node) continue;
         let pp = canSecure(p) ? 5 / 6 : clampP((7 - (p.ag + tzb)) / 6);
         if (!canSecure(p) && has(p, 'Sure Hands')) pp = 1 - (1 - pp) * (1 - pp);
-        const s = node.prob * pp - node.steps * 0.001;
+        const s = node.prob * pp - node.steps * 0.001 + this.carrierFit(p);
         if (s > bs) { bs = s; best = { p, node }; }
       }
       if (!best) return;
@@ -1863,6 +1865,7 @@ class AI {
     const last = G.turn[this.t] >= TURNS;
     if (await this.tryScore(last ? 0.01 : 0.5)) return;
     if (await this.tryPassScore(last)) return;
+    if (!last && await this.tryPassAdvance()) return;
     if (await begin(c, 'move')) { await this.advance(c); await this.pause(); }
     finish(c);
   }
@@ -1913,6 +1916,18 @@ class AI {
     targets = targets.filter(([x, y]) => inPitch(x, y)).filter(([x, y]) => { const q = playerAt(x, y); return !(q && q.team === this.t && hasTZ(q) && (q.used || q === c)); });
     const ps = this.avail().filter(p => p !== c && !this.riskyBlock(p) && !(this.skipSet && this.skipSet.has(p))).sort((a, b) => cheb(a.x, a.y, bx, by) - cheb(b.x, b.y, bx, by));
     const bi = ballLoose() ? idx(bx, by) : -1;
+    if (off && this instanceof AI2 && AI2.f.pass && c && c.team === this.t && c.state === 'standing') {   // el corredor se adelanta para recibir una entrega o un pase corto
+      const fit = q => this.carrierFit(q) + (q.ma - c.ma) * 0.02;
+      const runner = ps.filter(q => !q.used && !q.started && q.loc === 'pitch' && q.state === 'standing' && !q.big && q.ma >= 5 && !has(q, 'No Hands') && fit(q) > this.carrierFit(c) + 0.02).sort((x, y) => fit(y) - fit(x))[0];
+      if (runner) {
+        const TS = [[bx + dr, by + 1], [bx + dr, by - 1], [bx + dr, by]].filter(([x, y]) => inPitch(x, y)), opts = [{ x: runner.x, y: runner.y, steps: 0, node: null }];
+        for (const n of computeMoves(runner).values()) if (n.prob >= 0.999 && n.i !== bi && !playerAt(n.x, n.y)) opts.push({ x: n.x, y: n.y, steps: n.steps, node: n });
+        let best = null, bs = 1e9;
+        for (const o of opts) { const sc = Math.min(...TS.map(t => cheb(o.x, o.y, t[0], t[1]))) * 10 + this.exposure(o.x, o.y, runner) * 1.2 + o.steps * 0.1; if (sc < bs) { bs = sc; best = o; } }
+        ps.splice(ps.indexOf(runner), 1);
+        if (best && best.node && await begin(runner, 'move')) { await moveAlong(runner, pathOf(best.node)); await sleep(150); finish(runner); if (this.over()) return; }
+      }
+    }
     for (const p of ps) {
       if (p.used || p.started || p.loc !== 'pitch') continue;
       if (!off && c && hasTZ(p) && cheb(p.x, p.y, c.x, c.y) === 1) continue;
@@ -1944,10 +1959,12 @@ class AI {
   }
 }
 
+/* plan por defecto según raza, solo donde la simulación mostró mejora sostenida (Nurgle: banda, +6 puntos de victoria en 300 partidos) */
+const RACE_PLAN = { Nurgle: 'banda' };
 class AI2 extends AI {
   /* plan efectivo del equipo (con el cambio automático según el marcador) */
   plan() {
-    const t = this.team, p = t.plan || PRESETS.equil;
+    const t = this.team, p = t.plan || PRESETS[RACE_PLAN[t.race]] || PRESETS.equil;
     if (!p.auto) return p;
     const lead = t.score - G.teams[1 - this.t].score, e = Object.assign({}, p);
     if (lead > 0) { e.style = Math.max(0, p.style - 30); e.scoring = 'late'; e.risk = Math.max(0, p.risk - 25); }
@@ -1969,6 +1986,41 @@ class AI2 extends AI {
     if (t === 'key') return this.keyness(e);
     if (t === 'weak') return Math.max(0, 10 - e.av) * 5 + (e.st <= 2 ? 8 : 0);
     return 0;
+  }
+  /* mover el balón con entregas y pases cortos hacia un compañero que llegue más lejos (equipos lentos, cage, Pestigors, etc.) */
+  async tryPassAdvance() {
+    const c = G.ball.carrier;
+    if (!AI2.f.pass || !c || c.team !== this.t || c.state !== 'standing' || has(c, 'My Ball') || c.used) return false;
+    const gx = goalX(this.t), urg = this.urgent();
+    const eff = (p, mk) => p.ma * (mk ? 0.5 : 1) - (p.big ? 0.5 : 0);
+    const dc = Math.abs(gx - c.x) - eff(c, markers(c).length > 0);
+    let best = null, bs = urg ? 0.3 : 1.0;
+    for (const t of this.avail()) {
+      if (t === c || t.state !== 'standing' || t.noHands || has(t, 'No Hands') || t.big && t.st < 5) continue;
+      const adj = cheb(c.x, c.y, t.x, t.y) === 1, band = rangeBand(c.x, c.y, t.x, t.y);
+      let p1;
+      if (adj && !G.handUsed) p1 = 1;
+      else { if (G.passUsed || c.noPA || band < 0 || band > (urg ? 2 : 1)) continue; p1 = clampP((7 - (c.pa + band + markers(c).length)) / 6); if (has(c, 'Pass')) p1 = 1 - (1 - p1) * (1 - p1); }
+      let pc = clampP((7 - (t.ag + markers(t).length)) / 6); if (has(t, 'Catch')) pc = 1 - (1 - pc) * (1 - pc);
+      let ps = p1 * pc; if (this.team.rr > 0 && !G.rrUsed) ps = ps + (1 - ps) * ps;   // con segunda oportunidad (relanzamiento)
+      if (ps < (urg ? 0.45 : 0.6 - 0.1 * this.aggr())) continue;
+      const dt = Math.abs(gx - t.x) - eff(t, markers(t).length > 0);
+      const gain = dc - dt;
+      const sc = gain - (1 - ps) * 5 - this.exposure(t.x, t.y, t) * 0.2 + (has(t, 'Sure Hands') ? 0.8 : 0);
+      if (sc > bs) { bs = sc; best = { t, hand: adj && !G.handUsed }; }
+    }
+    if (!best) return false;
+    const { t, hand } = best;
+    if (!(await begin(c, hand ? 'handoff' : 'pass'))) { finish(c); return true; }
+    if (hand) await handoff(c, t); else await pass(c, t.x, t.y);
+    await this.pause();
+    if (this.over()) return true;
+    if (G.ball.carrier === t && !t.used && await begin(t, 'move')) { await this.advance(t); await this.pause(); finish(t); }
+    return true;
+  }
+  carrierFit(p) {
+    if (!AI2.f.runner) return 0;
+    return 0.04 * (p.ma - 5) + (has(p, 'Sure Hands') ? 0.05 : 0) + (p.ag <= 3 ? 0.03 : p.ag >= 5 ? -0.03 : 0) + (p.big ? -0.1 : 0) + (has(p, 'Dodge') ? 0.02 : 0) + (p.st >= 4 && p.ma <= 4 ? -0.03 : 0);
   }
   /* rival que puede llegar al portador este turno y pegar fuerte (F4+, Mighty Blow): bloquearlo vale más que rodear al portador */
   carrierThreat(e) {
@@ -2191,7 +2243,7 @@ class AI2 extends AI {
     await this.doBlocks(1);
   }
 }
-AI2.v = 0; AI2.f = { foul: 1, foulMin: 0.45, def: 1, kick: 0, adv: 1, dodge: 1, free: 2, rush: 1, thr: 1 };
+AI2.v = 0; AI2.f = { foul: 1, foulMin: 0.45, def: 1, kick: 0, adv: 1, dodge: 1, free: 2, rush: 1, thr: 1, runner: 1, pass: 1 };
 class AI2b extends AI2 {}
 
 /* =====================================================================
