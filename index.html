@@ -2895,13 +2895,13 @@ if (!HEADLESS) (function () {
     const where = lastSnap.k === 'drive' ? 'la formación de esta entrada' : `el inicio de este turno de ${G.teams[lastSnap.a].name}`;
     const note = live ? 'Se guarda la partida tal como está ahora.' : `Hay una jugada en curso: se guarda desde ${where}.`;
     const c = await ask(`<h2>Pausa</h2><p>${matchDesc()}</p><p class="sub">${note}</p>`,
-      [{ label: 'Continuar', value: 'go', primary: true }, { label: 'Guardar partida', value: 'save' }, { label: 'Guardar y volver al menú', value: 'savemenu' }, { label: 'Salir sin guardar', value: 'quit' }]);
+      [{ label: 'Continuar', value: 'go', primary: true }, { label: 'Guardar partida', value: 'save' }, { label: 'Guardar y volver al menú', value: 'savemenu' }, { label: 'Descargar archivo de guardado', value: 'dl' }, { label: 'Salir sin guardar', value: 'quit' }]);
     const snap = live ? { k: 'turn', a: 0, str: snapG(), desc: matchDesc() } : lastSnap;
-    if (c === 'save' || c === 'savemenu') {
+    if (c === 'save' || c === 'savemenu' || c === 'dl') {
       const ok = storeMatch(snap, live);
       if (!ok) { await ask('<h2>No se pudo guardar</h2><p>El navegador no permite guardar en este archivo. Revisa que el almacenamiento local esté habilitado.</p>', [{ label: 'Entendido', value: 1, primary: true }]); setPause(false); return; }
       if (c === 'savemenu') { location.reload(); return; }
-      onLog('Partida guardada', 'good');
+      if (c === 'dl') { downloadSave(); onLog('Guardado descargado', 'good'); } else onLog('Partida guardada', 'good');
     } else if (c === 'quit') {
       if (await ask('<h2>Salir sin guardar</h2><p>Se pierde el avance de este partido (el torneo se mantiene en la ronda actual).</p>', [{ label: 'Salir al menú', value: 1, primary: true }, { label: 'Volver', value: 0 }])) { dropMatch(); location.reload(); return; }
     }
@@ -2932,6 +2932,39 @@ if (!HEADLESS) (function () {
   const MSAVE = 'bb_match_v1';
   const loadMatch = () => { try { return JSON.parse(localStorage.getItem(MSAVE) || 'null'); } catch (e) { return null; } };
   const dropMatch = () => { try { localStorage.removeItem(MSAVE); } catch (e) {} };
+  /* archivo de guardado: se baja como .json y se vuelve a cargar desde el menú */
+  function downloadSave() {
+    const g = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } };
+    const o = { app: 'bbchile', v: 1, t: Date.now(), tournament: g(SAVE), match: g(MSAVE), plan: g(PLANKEY) };
+    if (!o.tournament && !o.match) return false;
+    const d = new Date(), z = n => String(n).padStart(2, '0');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(o)], { type: 'application/json' }));
+    a.download = `bbchile-guardado-${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}.json`;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    return true;
+  }
+  function pickFile() {
+    return new Promise(res => {
+      const i = document.createElement('input'); i.type = 'file'; i.accept = '.json,application/json';
+      i.onchange = () => { const f = i.files && i.files[0]; if (!f) return res(null); const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = () => res(null); r.readAsText(f); };
+      i.addEventListener('cancel', () => res(null)); i.click();
+    });
+  }
+  async function importSave() {
+    const txt = await pickFile(); if (txt == null) return;
+    let o = null; try { o = JSON.parse(txt); } catch (e) {}
+    const okT = o && o.tournament && typeof o.tournament.round === 'number' && Array.isArray(o.tournament.res), okM = o && o.match && typeof o.match.str === 'string' && o.match.k;
+    if (!o || o.app !== 'bbchile' || (!okT && !okM)) { await ask('<h2>Archivo no válido</h2><p>Ese archivo no es un guardado de este juego.</p>', [{ label: 'Volver', value: 1, primary: true }]); return; }
+    if ((load() || loadMatch()) && !(await ask('<h2>Reemplazar lo guardado</h2><p>Ya hay una partida o un torneo guardado en este navegador. Cargar el archivo los reemplaza.</p>', [{ label: 'Cargar el archivo', value: 1, primary: true }, { label: 'Cancelar', value: 0 }]))) return;
+    try {
+      localStorage.removeItem(SAVE); localStorage.removeItem(MSAVE);
+      if (okT) localStorage.setItem(SAVE, JSON.stringify(o.tournament));
+      if (okM) localStorage.setItem(MSAVE, JSON.stringify(o.match));
+      if (o.plan) localStorage.setItem(PLANKEY, JSON.stringify(o.plan));
+    } catch (e) { await ask('<h2>No se pudo cargar</h2><p>El navegador no permite guardar datos locales.</p>', [{ label: 'Volver', value: 1, primary: true }]); return; }
+    await ask('<h2>Guardado cargado</h2><p>Ya puedes continuar desde el menú.</p>', [{ label: 'Aceptar', value: 1, primary: true }]);
+  }
   const matchDesc = () => `Mitad ${G.half}: ${G.teams[0].name} ${G.teams[0].score} a ${G.teams[1].score} ${G.teams[1].name}`;
   function storeMatch(snap, live) {
     try { localStorage.setItem(MSAVE, JSON.stringify({ v: 1, mode: curMode, k: snap.k, a: snap.a, live: !!live, str: snap.str, ulog, desc: snap.desc || matchDesc(), t: Date.now() })); return true; } catch (e) { return false; }
@@ -3107,6 +3140,7 @@ if (!HEADLESS) (function () {
       const sv = load();
       const ms = loadMatch();
       const btn = [{ label: TDC.name, value: 'new', primary: !sv && !ms }, { label: 'Partido rápido', value: 'quick' }];
+      btn.push({ label: 'Cargar archivo de guardado', value: 'imp' }); if (sv || ms) btn.push({ label: 'Descargar guardado', value: 'exp' });
       if (ms) btn.unshift({ label: `Continuar partida (${ms.desc})`, value: 'cm', primary: true });
       if (sv && sv.round <= TDC.rounds) btn.unshift({ label: `Continuar torneo (ronda ${sv.round}, ${tn(sv.me).name})`, value: 'cont', primary: true });
       const c = await ask(`<img class="pst-img" src="${ASSETS.poster}" alt="Afiche del Torneo de Campeones"><div class="pst-side"><div class="pst-k">BB Chile - El desafío</div><p>Juega contra la IA: revive el ${TDC.name} con uno de sus 16 equipos, o juega un partido suelto.</p><div id="modalBtns2"></div></div>`, btn, false, 'poster');
@@ -3114,6 +3148,8 @@ if (!HEADLESS) (function () {
         if (ms.mode === 'tdc') { const t = load(); if (t) await tournament(t, ms); else { dropMatch(); await ask('<h2>Partida no disponible</h2><p>El torneo de esta partida ya no está guardado.</p>', [{ label: 'Volver al menú', value: 1, primary: true }]); } }
         else await quickMatch(ms);
       }
+      else if (c === 'imp') await importSave();
+      else if (c === 'exp') downloadSave();
       else if (c === 'quick') await quickMatch();
       else if (c === 'cont') await tournament(sv);
       else { if (sv && !(await ask('<h2>Torneo en curso</h2><p>Ya tienes un torneo guardado. Si empiezas uno nuevo se pierde.</p>', [{ label: 'Empezar uno nuevo', value: 1, primary: true }, { label: 'Volver', value: 0 }]))) continue; const st = await newTournament(); if (st) await tournament(st); }

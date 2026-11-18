@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BB Chile - El desafío</title>
+<style>
+/*STYLE*/
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="deco d1"></div><div class="deco d2"></div>
+  <header>
+    <div class="team" id="hd0"><div class="tx"><span class="nm"></span><span class="meta"></span></div><span class="dot"></span></div>
+    <div id="mid"><span class="score" id="sc0">0</span><div id="clock">Mitad 1<small>Turno 0 / 8</small></div><span class="score" id="sc1">0</span></div>
+    <div class="team" id="hd1"><div class="tx"><span class="nm"></span><span class="meta"></span></div><span class="dot"></span></div>
+  </header>
+  <main>
+    <aside class="side t0" id="sideL">
+      <div class="ptitle">Jugador seleccionado</div>
+      <div class="pcard" id="cardL"></div>
+      <div class="dug" id="dugL"></div>
+    </aside>
+    <div id="boardWrap">
+      <div id="msg">Cargando…</div>
+      <div id="bframe"><canvas id="board"></canvas></div>
+      <div id="flash"></div>
+      <div id="dfx" hidden></div>
+      <div id="bnr" hidden></div>
+      <div id="bottom">
+        <div class="box" id="log"></div>
+        <div class="box" id="ctl">
+          <div id="actions">
+            <button id="bBlitz">Blitz</button>
+            <button id="bPass">Pase</button>
+            <button id="bHand">Entrega</button>
+            <button id="bFoul">Falta</button>
+            <button id="bSecure">Asegurar</button>
+            <button id="bStand">Levantarse</button>
+            <button id="bTTM">Lanzar compañero</button>
+            <button id="bVomit">Vómito</button>
+            <button id="bStab">Apuñalar</button>
+            <button id="bPunt">Despeje</button>
+            <button id="bEndAct" class="half">Terminar activación</button>
+            <button id="bEndTurn" class="half primary">Terminar turno</button>
+            <button id="bLineup" class="wide" hidden>Elegir jugadores</button>
+            <button id="bReady" class="wide primary" hidden>Listo</button>
+            <div id="bench" class="wide" hidden></div>
+          </div>
+          <div class="row" style="margin-top:8px"><span>Velocidad</span>
+            <select id="speed"><option value="1.6" selected>Lenta</option><option value="1">Normal</option><option value="0.35">Rápida</option></select><button id="bPause" style="padding:6px 18px">Pausa</button>
+          </div>
+          <details><summary>Cómo jugar</summary><ul>
+          <li>Un triángulo dorado en la esquina de un jugador marca que tiene habilidades extra (se ven con ★ en su tarjeta).</li>
+          <li>Clic en un jugador tuyo para seleccionarlo. Las casillas verdes se alcanzan sin tirar dados, las amarillas piden tiradas (esquivar o esprintar).</li>
+          <li>Bloqueo: selecciona un jugador que no se haya movido y haz clic en un rival de pie adyacente.</li>
+          <li>Blitz, Pase, Entrega y Falta: aprieta el botón antes de mover al jugador, luego haz clic en el objetivo.</li>
+          <li>Los jugadores caídos se levantan solos al moverlos (cuesta 3 de movimiento).</li>
+          <li>A la izquierda ves al jugador seleccionado y tu banca; a la derecha, al jugador bajo el cursor y la banca rival.</li>
+          <li>En la formación puedes cambiar un titular por un reserva: selecciona al titular y haz clic en el reserva en tu banca.</li>
+          <li>Las casillas con tirada muestran el número que necesitas (por ejemplo 2+ para esprintar, 4+ para esquivar).</li>
+          <li>Con la tecla Esc sueltas al jugador seleccionado si todavía no ha hecho nada.</li>
+          <li>Un segundo clic sobre el jugador seleccionado abre un menú para terminar su acción.</li>
+          <li>Al terminar aprieta "Terminar turno".</li>
+          </ul></details>
+          <details><summary>Reglas incluidas y pendientes</summary><ul>
+          <li>Incluye clima, los 11 eventos de patada, Stalling, saltar sobre caídos, boticario, sobornos y discutir con el árbitro.</li>
+          <li>Habilidades que se usan solas cuando convienen: Wrestle, Stand Firm, Diving Tackle, Shadowing, Juggernaut, Dauntless y Break Tackle.</li>
+                    <li>Los equipos del torneo usan los atributos y habilidades de sus listas originales (BB2020), sobre las reglas de juego 2025.</li>
+          <li>Todas las habilidades de las fichas están programadas. Plague Ridden solo se activa si el jugador mata a un rival con un bloqueo.</li>
+          <li>Pendiente: plegarias a Nuffle, armas secretas y el armado de equipos con presupuesto.</li>
+          <li>La IA usa Apuñalar, Vómito y Hit and Run cuando conviene. Lanzar compañero y Despeje los usa solo en el último turno de una mitad, cuando pueden dar un touchdown que de otra forma no llega.</li>
+          </ul></details>
+          <details><summary>Créditos</summary><ul><li>Campo, iconos de jugadores y dados: recursos del cliente FFB de FUMBBL (github.com/christerk/ffb). Solo para uso personal.</li></ul></details>
+        </div>
+      </div>
+    </div>
+    <aside class="side t1" id="sideR">
+      <div class="ptitle">Bajo el cursor</div>
+      <div class="pcard" id="cardR"></div>
+      <div class="dug" id="dugR"></div>
+    </aside>
+  </main>
+</div>
+<div id="ctx" hidden></div>
+<div id="modal" hidden><div id="modalBox"><div id="modalBody"></div><div id="modalBtns"></div></div></div>
+
+<script>
+/*SCRIPT*/
+</script>
+</body>
+</html>
