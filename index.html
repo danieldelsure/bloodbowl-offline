@@ -1581,6 +1581,7 @@ class AI {
     return new Set(this.avail().filter(p => p !== c && p.state === 'standing').sort((a, b) => cheb(a.x, a.y, c.x, c.y) - cheb(b.x, b.y, c.x, c.y)).slice(0, 3));
   }
   passMin(last) { return last ? 0.05 : 0.5; }
+  carrierThreat() { return 0; }   // AI2 lo sobreescribe: peso de un rival que puede tumbar a mi portador
   holdScore() { return false; }
   /* último turno de la mitad y no hay forma razonable de anotar: todo a pegar */
   lastStand() {
@@ -1772,7 +1773,7 @@ class AI {
           const info = blockDice(p, e);
           if ((!info.attChooses && !this.bashing) || info.n < minDice) continue;
           if (info.n === 1 && !this.oneDieOk(p, e)) continue;
-          const s = info.n * 10 + (G.ball.carrier === e ? 50 : 0) + (surfPossible(p.x, p.y, e) ? 14 : 0) + this.hitX(e) * 0.3 + (has(p, 'Block') ? 3 : 0) + (has(p, 'Mighty Blow') ? 2 : 0) - (has(e, 'Block') ? 2 : 0);
+          const s = info.n * 10 + (G.ball.carrier === e ? 50 : 0) + this.carrierThreat(e) + (surfPossible(p.x, p.y, e) ? 14 : 0) + this.hitX(e) * 0.3 + (has(p, 'Block') ? 3 : 0) + (has(p, 'Mighty Blow') ? 2 : 0) - (has(e, 'Block') ? 2 : 0);
           if (s > bs) { bs = s; best = [p, e]; }
         }
       }
@@ -1804,7 +1805,7 @@ class AI {
           if (prob < this.blitzMin(isC)) continue;
           p.x = x; p.y = y; const info = blockDice(p, e, p.st + (has(p, 'Horns') ? 1 : 0)); p.x = ox; p.y = oy;
           if ((!info.attChooses && !has(p, 'Stab') && !this.bashing) || (info.n < this.blitzDice(p) && !isC && !has(p, 'Stab'))) continue;
-          const s = prob * (info.n * 10 + (isC ? this.hitC() : 0) + (surfPossible(x, y, e) ? 14 : 0) + this.hitX(e) + (myC && cheb(e.x, e.y, myC.x, myC.y) === 1 ? 8 : 0) + (has(p, 'Block') ? 3 : 0));
+          const s = prob * (info.n * 10 + (isC ? this.hitC() : 0) + this.carrierThreat(e) + (surfPossible(x, y, e) ? 14 : 0) + this.hitX(e) + (myC && cheb(e.x, e.y, myC.x, myC.y) === 1 ? 8 : 0) + (has(p, 'Block') ? 3 : 0));
           if (s > bs) { bs = s; best = { p, e, node, info }; }
         }
       }
@@ -1969,7 +1970,22 @@ class AI2 extends AI {
     if (t === 'weak') return Math.max(0, 10 - e.av) * 5 + (e.st <= 2 ? 8 : 0);
     return 0;
   }
-  oneDieOk(p, e) { return this.bashing ? true : this.rk() < -0.5 ? has(p, 'Block') : super.oneDieOk(p, e); }
+  /* rival que puede llegar al portador este turno y pegar fuerte (F4+, Mighty Blow): bloquearlo vale más que rodear al portador */
+  carrierThreat(e) {
+    const c = G.ball.carrier;
+    if (!AI2.f.thr || !c || c.team !== this.t || e.state !== 'standing' || !hasTZ(e) || G.turn[this.t] >= TURNS) return 0;
+    if (cheb(e.x, e.y, c.x, c.y) > e.ma + 2) return 0;
+    return (e.st >= 4 ? 40 : e.st === 3 ? 12 : 3) + (has(e, 'Mighty Blow') ? 8 : 0) + (has(e, 'Tackle') ? 3 : 0) + (has(e, 'Frenzy') ? 4 : 0);
+  }
+  coverSet() {
+    const c = G.ball.carrier;
+    if (AI2.f.thr && c && c.team === this.t && this.foes().some(e => this.carrierThreat(e) >= 40)) {   // hay un F4+ cerca: casi todos quedan libres para ir a por él
+      if (c.state !== 'standing' || G.turn[this.t] >= TURNS) return null;
+      return new Set(this.avail().filter(p => p !== c && p.state === 'standing').sort((a, b) => cheb(a.x, a.y, c.x, c.y) - cheb(b.x, b.y, c.x, c.y)).slice(0, 1));
+    }
+    return super.coverSet();
+  }
+  oneDieOk(p, e) { return this.bashing ? true : AI2.f.thr && this.carrierThreat(e) >= 40 && has(p, 'Block') ? true : this.rk() < -0.5 ? has(p, 'Block') : super.oneDieOk(p, e); }
   advThr() { const r = this.rk(); return r < -0.5 ? 0.999 : r > 0.5 ? 0.8 : 0.95; }
   passMin(last) {
     if (last) return 0.05;
@@ -2175,7 +2191,7 @@ class AI2 extends AI {
     await this.doBlocks(1);
   }
 }
-AI2.v = 0; AI2.f = { foul: 1, foulMin: 0.45, def: 1, kick: 0, adv: 1, dodge: 1, free: 2, rush: 1 };
+AI2.v = 0; AI2.f = { foul: 1, foulMin: 0.45, def: 1, kick: 0, adv: 1, dodge: 1, free: 2, rush: 1, thr: 1 };
 class AI2b extends AI2 {}
 
 /* =====================================================================
