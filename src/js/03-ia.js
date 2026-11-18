@@ -30,6 +30,7 @@ class AI {
   passMin(last) { return last ? 0.05 : 0.5; }
   async tryPassAdvance() { return false; }   // AI2: entregas y pases cortos para mover el balón con equipos lentos
   carrierFit() { return 0; }   // AI2: quién conviene que lleve el balón, a igualdad de probabilidad de recogerlo
+  longOk() { return false; }   // AI2: equipos con buen pase pueden intentar pase largo para anotar
   carrierThreat() { return 0; }   // AI2 lo sobreescribe: peso de un rival que puede tumbar a mi portador
   holdScore() { return false; }
   /* último turno de la mitad y no hay forma razonable de anotar: todo a pegar */
@@ -324,7 +325,7 @@ class AI {
       const adj = cheb(c.x, c.y, t.x, t.y) === 1, band = rangeBand(c.x, c.y, t.x, t.y);
       let p1;
       if (adj && !G.handUsed) p1 = 1;
-      else { if (G.passUsed || c.noPA || band < 0 || band > (wx('blizzard') ? 1 : last ? 2 : 1)) continue; p1 = clampP((7 - (c.pa + band + markers(c).length)) / 6); if (has(c, 'Pass')) p1 = 1 - (1 - p1) * (1 - p1); }
+      else { if (G.passUsed || c.noPA || band < 0 || band > (wx('blizzard') ? 1 : last || this.longOk() ? 2 : 1)) continue; p1 = clampP((7 - (c.pa + band + markers(c).length)) / 6); if (has(c, 'Pass')) p1 = 1 - (1 - p1) * (1 - p1); }
       let pc = clampP((7 - (t.ag + markers(t).length)) / 6); if (has(t, 'Catch')) pc = 1 - (1 - pc) * (1 - pc);
       let pz = 0;
       if (t.x === gx) pz = 1; else { const n = this.scoreNode(t); if (n) pz = n.prob; }
@@ -364,10 +365,14 @@ class AI {
     const ps = this.avail().filter(p => p !== c && !this.riskyBlock(p) && !(this.skipSet && this.skipSet.has(p))).sort((a, b) => cheb(a.x, a.y, bx, by) - cheb(b.x, b.y, bx, by));
     const bi = ballLoose() ? idx(bx, by) : -1;
     if (off && this instanceof AI2 && AI2.f.pass && c && c.team === this.t && c.state === 'standing') {   // el corredor se adelanta para recibir una entrega o un pase corto
-      const fit = q => this.carrierFit(q) + (q.ma - c.ma) * 0.02;
-      const runner = ps.filter(q => !q.used && !q.started && q.loc === 'pitch' && q.state === 'standing' && !q.big && q.ma >= 5 && !has(q, 'No Hands') && fit(q) > this.carrierFit(c) + 0.02).sort((x, y) => fit(y) - fit(x))[0];
-      if (runner) {
-        const TS = [[bx + dr, by + 1], [bx + dr, by - 1], [bx + dr, by]].filter(([x, y]) => inPitch(x, y)), opts = [{ x: runner.x, y: runner.y, steps: 0, node: null }];
+      const pt = this.passTeam(), nR = pt ? 3 : 1;
+      const fit = q => this.carrierFit(q) + (q.ma - c.ma) * 0.02 + (q.ag <= 3 || has(q, 'Catch') ? 0.1 : 0);
+      const cand = ps.filter(q => !q.used && !q.started && q.loc === 'pitch' && q.state === 'standing' && !q.big && q.ma >= 5 && !q.noHands && !has(q, 'No Hands') && (pt ? (q.ag <= 3 || has(q, 'Catch')) : fit(q) > this.carrierFit(c) + 0.02)).sort((x, y) => fit(y) - fit(x)).slice(0, nR);
+      const slots = pt ? [[bx + 3 * dr, by - 3], [bx + 3 * dr, by + 3], [bx + 5 * dr, by]] : [[bx + dr, by + 1]];
+      for (let k = 0; k < cand.length; k++) {
+        const runner = cand[k], TS = (pt ? [slots[k], [slots[k][0], slots[k][1] + (slots[k][1] > by ? -1 : 1)]] : slots).filter(([x, y]) => inPitch(x, y));
+        if (!TS.length || runner.used) continue;
+        const opts = [{ x: runner.x, y: runner.y, steps: 0, node: null }];
         for (const n of computeMoves(runner).values()) if (n.prob >= 0.999 && n.i !== bi && !playerAt(n.x, n.y)) opts.push({ x: n.x, y: n.y, steps: n.steps, node: n });
         let best = null, bs = 1e9;
         for (const o of opts) { const sc = Math.min(...TS.map(t => cheb(o.x, o.y, t[0], t[1]))) * 10 + this.exposure(o.x, o.y, runner) * 1.2 + o.steps * 0.1; if (sc < bs) { bs = sc; best = o; } }
@@ -435,10 +440,16 @@ class AI2 extends AI {
     return 0;
   }
   /* mover el balón con entregas y pases cortos hacia un compañero que llegue más lejos (equipos lentos, cage, Pestigors, etc.) */
+  /* equipo de pase: algún buen lanzador (PA 3+ o Pass) y al menos 3 receptores ágiles (AG 3+ o Catch) */
+  passTeam() {
+    const ps = G.teams[this.t].players.filter(p => p.loc === 'pitch' && !p.big && !p.noHands && !has(p, 'No Hands'));
+    return ps.some(p => (p.pa && p.pa <= 3) || has(p, 'Pass')) && ps.filter(p => p.ag <= 3 || has(p, 'Catch')).length >= 3;
+  }
+  longOk() { return !!AI2.f.pass && this.passTeam(); }
   async tryPassAdvance() {
     const c = G.ball.carrier;
     if (!AI2.f.pass || !c || c.team !== this.t || c.state !== 'standing' || has(c, 'My Ball') || c.used) return false;
-    const gx = goalX(this.t), urg = this.urgent();
+    const gx = goalX(this.t), urg = this.urgent(), pt = this.passTeam();
     const eff = (p, mk) => p.ma * (mk ? 0.5 : 1) - (p.big ? 0.5 : 0);
     const dc = Math.abs(gx - c.x) - eff(c, markers(c).length > 0);
     let best = null, bs = urg ? 0.3 : 1.0;
@@ -450,10 +461,10 @@ class AI2 extends AI {
       else { if (G.passUsed || c.noPA || band < 0 || band > (urg ? 2 : 1)) continue; p1 = clampP((7 - (c.pa + band + markers(c).length)) / 6); if (has(c, 'Pass')) p1 = 1 - (1 - p1) * (1 - p1); }
       let pc = clampP((7 - (t.ag + markers(t).length)) / 6); if (has(t, 'Catch')) pc = 1 - (1 - pc) * (1 - pc);
       let ps = p1 * pc; if (this.team.rr > 0 && !G.rrUsed) ps = ps + (1 - ps) * ps;   // con segunda oportunidad (relanzamiento)
-      if (ps < (urg ? 0.45 : 0.6 - 0.1 * this.aggr())) continue;
+      if (ps < (urg ? 0.45 : 0.6 - 0.1 * this.aggr() + (pt ? -0.1 : 0.1))) continue;
       const dt = Math.abs(gx - t.x) - eff(t, markers(t).length > 0);
       const gain = dc - dt;
-      const sc = gain - (1 - ps) * 5 - this.exposure(t.x, t.y, t) * 0.2 + (has(t, 'Sure Hands') ? 0.8 : 0);
+      const sc = gain - (1 - ps) * AI2.f.pcost - this.exposure(t.x, t.y, t) * 0.2 + (has(t, 'Sure Hands') ? 0.8 : 0);
       if (sc > bs) { bs = sc; best = { t, hand: adj && !G.handUsed }; }
     }
     if (!best) return false;
@@ -690,6 +701,6 @@ class AI2 extends AI {
     await this.doBlocks(1);
   }
 }
-AI2.v = 0; AI2.f = { foul: 1, foulMin: 0.45, def: 1, kick: 0, adv: 1, dodge: 1, free: 2, rush: 1, thr: 1, runner: 1, pass: 1 };
+AI2.v = 0; AI2.f = { pcost: 2.5, foul: 1, foulMin: 0.45, def: 1, kick: 0, adv: 1, dodge: 1, free: 2, rush: 1, thr: 1, runner: 1, pass: 1 };
 class AI2b extends AI2 {}
 
