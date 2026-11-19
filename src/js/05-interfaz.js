@@ -812,15 +812,51 @@ if (!HEADLESS) (function () {
     const a = G.teams[0].score, b = G.teams[1].score;
     await ask(`<h2>${a > b ? '¡Ganaste!' : a < b ? 'Ganó la IA' : 'Empate'}</h2><p>${G.teams[0].name} ${a}, ${G.teams[1].name} ${b}</p>`, [{ label: 'Volver al menú', value: 1, primary: true }]);
   }
+  /* tres posicionales que representan al equipo: el más fuerte al centro, dos distintos a los lados */
+  function trio(t) {
+    const weak = /lineman|goblin|rotter|beastmanrunner|hopeful/, by = {};
+    for (const p of t.players) { const sc = p.st * 10 + p.sk.length + (weak.test(p.sheet) ? -25 : 0) + (p.ex.length ? 1 : 0); if (!by[p.sheet] || sc > by[p.sheet].sc) by[p.sheet] = { p, sc }; }
+    const l = Object.values(by).sort((x, y) => y.sc - x.sc).map(o => o.p);
+    if (l.length >= 3) return [l[1], l[0], l[2]];
+    if (l.length === 2) return [l[1], l[0], l[1]];
+    return [l[0], l[0], l[0]];
+  }
+  function paintTrio(root) {
+    root.querySelectorAll('canvas[data-s]').forEach(c => {
+      const sh = IMG[c.dataset.s];
+      if (!sh || !sh.ok) { setTimeout(() => paintTrio(root), 150); return; }
+      const cw = sh.width / 4, rows = Math.max(1, Math.round(sh.height / cw)), k = Math.max(1, Math.round(+c.dataset.z / cw)), sz = cw * k, g = c.getContext('2d');
+      c.width = c.height = sz; g.imageSmoothingEnabled = false;
+      g.drawImage(sh, 2 * cw, (+c.dataset.var % rows) * cw, cw, cw, 0, 0, sz, sz);
+    });
+  }
+  const trioHtml = (t, z) => trio(t).map((p, k) => `<canvas data-s="${p.sheet}" data-var="${p.variant}" data-z="${k === 1 ? z * 1.25 : z}" class="tr${k}"></canvas>`).join('');
   async function newTournament() {
-    const opt = TDC.teams.map((t, i) => `<option value="${i}">${t.name} · ${t.race} · ${t.coach} (TV ${t.tv})</option>`).join('');
-    const rosterHtml = i => { const t = tn(i); return `<p class="sub">${t.rr} rerolls${t.apo ? ' · boticario' : ''}${t.coaches ? ' · ' + t.coaches + ' ayudantes' : ''}${t.cheer ? ' · ' + t.cheer + ' animadoras' : ''}${t.kegs ? ' · barril de cerveza' : ''}</p><table><tr><th>Jugador</th><th>Posición</th><th class="n">MA</th><th class="n">ST</th><th class="n">AG</th><th class="n">PA</th><th class="n">AV</th><th>Habilidades</th></tr>` +
+    const rosterHtml = i => { const t = tn(i); return `<div class="tp-hd"><div class="tp-trio" style="background:${bg(i)}">${trioHtml(t, 96)}</div><div><h3>${t.name}</h3><div class="tp-meta">${t.race} · ${t.coach} · TV ${t.tv}</div><p class="sub">${t.rr} rerolls${t.apo ? ' · boticario' : ''}${t.coaches ? ' · ' + t.coaches + ' ayudantes' : ''}${t.cheer ? ' · ' + t.cheer + ' animadoras' : ''}${t.kegs ? ' · barril de cerveza' : ''}</p></div></div><table><tr><th>Jugador</th><th>Posición</th><th class="n">MA</th><th class="n">ST</th><th class="n">AG</th><th class="n">PA</th><th class="n">AV</th><th>Habilidades</th></tr>` +
       t.players.map(p => `<tr><td>${p.name}</td><td>${p.pos}</td><td class="n">${p.ma}</td><td class="n">${p.st}</td><td class="n">${p.ag}+</td><td class="n">${p.pa ? p.pa + '+' : '-'}</td><td class="n">${p.av}+</td><td>${p.sk.join(', ')}</td></tr>`).join('') + '</table>'; };
-    const pr = ask(`<h2>${TDC.name}</h2><p>Elige uno de los 16 equipos, tal como lo armó su entrenador, e intenta ganar el torneo. Son ${TDC.rounds} rondas en sistema suizo: la primera usa los cruces reales y las siguientes dependen de tu resultado y de los demás.</p>
-      <label for="selT">Tu equipo</label><select id="selT">${opt}</select><div id="rosterPrev">${rosterHtml(0)}</div><label>Modo</label><div class="modeopt"><label><input type="radio" name="mode" value="p" checked>Jugador: tú mueves a tu equipo</label><label><input type="radio" name="mode" value="m">Manager: defines la táctica y la IA juega</label></div>`, [{ label: 'Empezar torneo', value: 1, primary: true }, { label: 'Volver', value: 0 }], true);
-    $('selT').onchange = e => { $('rosterPrev').innerHTML = rosterHtml(+e.target.value); };
+    /* equipos con el mismo trío: fondo de otro tono, y orden de la grilla sin repetidos pegados */
+    const sig = TDC.teams.map(t => trio(t).map(p => p.sheet).join('|')), seen = {}, tone = TDC.teams.map((t, i) => { const k = seen[sig[i]] = (seen[sig[i]] || 0) + 1; return k - 1; });
+    const dupN = {}; sig.forEach(g => { dupN[g] = (dupN[g] || 0) + 1; });
+    const TONES = ['', '#0039a61f', '#d52b1e1f', '#f2b6323a'];
+    const order = (() => {
+      const n = TDC.teams.length, res = Array(n).fill(-1), used = Array(n).fill(false);
+      const ok = (pos, i) => !(pos % 4 && sig[res[pos - 1]] === sig[i]) && !(pos >= 4 && sig[res[pos - 4]] === sig[i]);
+      const go = pos => { if (pos === n) return true; for (let i = 0; i < n; i++) if (!used[i] && ok(pos, i)) { used[i] = true; res[pos] = i; if (go(pos + 1)) return true; used[i] = false; res[pos] = -1; } return false; };
+      return go(0) ? res : TDC.teams.map((t, i) => i);
+    })();
+    const bg = i => dupN[sig[i]] > 1 ? TONES[tone[i] % TONES.length] : '';
+    const first = order[0];
+    const cards = order.map(i => { const t = TDC.teams[i]; return `<button class="tc${i === first ? ' on' : ''}" data-t="${i}"><div class="tc-art" style="background:${bg(i)}">${trioHtml(t, 64)}</div><b>${t.name}</b><i>${t.race}</i><em>${t.coach} · TV ${t.tv}</em></button>`; }).join('');
+    let cur = first;
+    const pr = ask(`<h2>${TDC.name}</h2><p class="sub" style="margin:0 0 10px">Elige uno de los 16 equipos, tal como lo armó su entrenador, e intenta ganar el torneo. ${TDC.rounds} rondas en sistema suizo: la primera usa los cruces reales y las siguientes dependen de tu resultado y de los demás.</p>
+      <div class="tp"><div class="tp-grid">${cards}</div><div class="tp-side"><div id="rosterPrev">${rosterHtml(first)}</div><label>Modo</label><div class="modeopt"><label><input type="radio" name="mode" value="p" checked>Jugador: tú mueves a tu equipo</label><label><input type="radio" name="mode" value="m">Manager: defines la táctica y la IA juega</label></div></div></div>`,
+      [{ label: 'Empezar torneo', value: 1, primary: true }, { label: 'Volver', value: 0 }], true, 'teams', () => {
+        const box = $('modalBody');
+        paintTrio(box);
+        box.querySelectorAll('.tc').forEach(el => { el.onclick = () => { cur = +el.dataset.t; box.querySelectorAll('.tc').forEach(x => x.classList.toggle('on', x === el)); $('rosterPrev').innerHTML = rosterHtml(cur); paintTrio($('rosterPrev')); }; });
+      });
     if (!(await pr)) return null;
-    const st = tNew(+$('selT').value); st.mgr = document.querySelector('input[name=mode]:checked').value === 'm'; save(st); return st;
+    const st = tNew(cur); st.mgr = document.querySelector('input[name=mode]:checked').value === 'm'; save(st); return st;
   }
   async function tournament(st, rs) {
     while (st.round <= TDC.rounds) {
