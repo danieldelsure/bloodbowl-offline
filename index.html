@@ -356,6 +356,43 @@ body.mob #tutBox h3{font-size:17px}
 body.mob #tutBox p{font-size:12px;line-height:1.3;margin-bottom:6px}
 body.mob #tutBox button{padding:6px 10px;font-size:13px}
 
+/* ===== Paleta A2: naranja y aguacate (setentas, claro y pastel) ===== */
+:root{
+  --bg:#efe0bd; --panel:#e3d0a4; --panel2:#dcc896; --line:#c4aa72; --txt:#4a3426; --dim:#7a6249;
+  --acc:#d2693a; --blue:#3f8a86; --bone:#f8efd6; --ink:#3a2a1f; --hum:#3f8a86; --orc:#d2693a;
+  --bad:#b8452a; --ok:#4f7a2e; --mus:#e0a932;
+}
+html,body{background:var(--bg);color:var(--txt)}
+.deco.d1{opacity:.22} .deco.d2{opacity:.18}
+header{border-bottom:3px solid var(--ink)}
+.team.active-team::after{background:var(--mus)}
+.score{color:var(--ink)}
+#clock{color:var(--acc)}
+#msg{border-bottom:2px solid var(--ink)}
+#msg b{color:var(--ink)}
+#bframe{background:var(--ink)}
+.pcard{box-shadow:0 0 0 2px var(--ink) inset}
+.pcard .pimg{background:#6b7a45}
+.dug .slots{background:var(--panel);border:1px solid var(--line)}
+.dug canvas:hover{background:#3a2a1f22}
+#log.box{background:var(--panel);border-left:6px solid var(--acc);color:var(--txt)}
+#log div{border-bottom:1px solid #3a2a1f14}
+#log .t0{color:#2c6a66} #log .t1{color:#a8481f}
+#log .hd{color:var(--acc)}
+button{background:var(--panel2);color:var(--ink)}
+button.primary{background:var(--acc);color:#fff8e6}
+button.on{background:var(--blue);color:#fff8e6}
+#actions button{background:var(--panel2)}
+#actions button:disabled{background:var(--panel)}
+#bEndTurn{background:var(--acc)!important;color:#fff8e6!important}
+details,details summary{color:var(--dim)} details summary{color:var(--txt)}
+#modal{background:#3a2a1fcc}
+#modalBox{background:var(--bone);color:var(--ink)}
+#bnr .bn{background:var(--ink);color:var(--bone)}
+.lad.t1{background:var(--mus)}
+@keyframes blink{0%,60%{background:#f0c3a3}100%{}}
+button:disabled{opacity:.5}
+
 #zctl{display:none}
 body.mob #zctl{display:flex;flex-direction:column;gap:6px;position:absolute;left:12px;bottom:14px;z-index:6}
 body.mob #zctl button{width:40px;height:40px;padding:0;font:900 22px/1 var(--disp);-webkit-mask:none;mask:none;border-radius:50%;background:var(--ink);color:var(--bone);box-shadow:0 0 0 2px var(--bone)}
@@ -719,7 +756,7 @@ function makePlayer(team, id, d) {
 }
 function teamShell(i, o, players) {
   const rr = o.rr, line = (o.players || []).find(d => d.role === 'line') || o.lineDef || null;
-  return { i, race: o.race, name: o.name, coach: o.coach || '', color: i === 0 ? '#2d6cdf' : '#c8382e', players, rrMax: rr, rerolls: rr, score: 0, ctrl: null,
+  return { i, race: o.race, name: o.name, coach: o.coach || '', color: i === 0 ? '#3f8a86' : '#d2693a', players, rrMax: rr, rerolls: rr, score: 0, ctrl: null,
     apo: o.apo, bribes: 0, canArgue: true, cheer: o.cheer || 0, coaches: o.coaches || 0, fans: Math.max(1, o.fans || 0), kegs: o.kegs || 0, leaderRR: false, plagueUsed: false, lineDef: line, ff: 0, cheerAssist: false, bonusRR: 0, rrUsed: 0 };
 }
 function makeTeam(i, race) {
@@ -2884,6 +2921,8 @@ if (!HEADLESS) (function () {
     ctx.imageSmoothingEnabled = true;
     if (IMG.pitch.ok) ctx.drawImage(IMG.pitch, 1, 1, 780, 450, 0, 0, W * S, H * S);
     else { ctx.fillStyle = '#2f7a37'; ctx.fillRect(0, 0, W * S, H * S); }
+    /* paleta aguacate: aclara y calienta el césped sin tocar la textura */
+    ctx.save(); ctx.globalCompositeOperation = 'screen'; ctx.fillStyle = '#8f9a52'; ctx.globalAlpha = 0.42; ctx.fillRect(0, 0, W * S, H * S); ctx.restore();
     ctx.fillStyle = G.teams[0].color + '40'; ctx.fillRect(0, 0, S, H * S);
     ctx.fillStyle = G.teams[1].color + '40'; ctx.fillRect((W - 1) * S, 0, S, H * S);
     if ((ui.phase === 'setup' || ui.phase === 'snap') && ui.limit) for (const p of ui.limit.open) if (p.loc === 'pitch') { ctx.fillStyle = ui.limit.moved.has(p) ? '#ffffff30' : '#f2b63250'; ctx.fillRect(p.x * S + 2, p.y * S + 2, S - 4, S - 4); }

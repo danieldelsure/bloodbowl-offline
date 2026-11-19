@@ -130,7 +130,7 @@ function makePlayer(team, id, d) {
 }
 function teamShell(i, o, players) {
   const rr = o.rr, line = (o.players || []).find(d => d.role === 'line') || o.lineDef || null;
-  return { i, race: o.race, name: o.name, coach: o.coach || '', color: i === 0 ? '#2d6cdf' : '#c8382e', players, rrMax: rr, rerolls: rr, score: 0, ctrl: null,
+  return { i, race: o.race, name: o.name, coach: o.coach || '', color: i === 0 ? '#3f8a86' : '#d2693a', players, rrMax: rr, rerolls: rr, score: 0, ctrl: null,
     apo: o.apo, bribes: 0, canArgue: true, cheer: o.cheer || 0, coaches: o.coaches || 0, fans: Math.max(1, o.fans || 0), kegs: o.kegs || 0, leaderRR: false, plagueUsed: false, lineDef: line, ff: 0, cheerAssist: false, bonusRR: 0, rrUsed: 0 };
 }
 function makeTeam(i, race) {

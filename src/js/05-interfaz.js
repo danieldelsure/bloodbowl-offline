@@ -263,6 +263,8 @@ if (!HEADLESS) (function () {
     ctx.imageSmoothingEnabled = true;
     if (IMG.pitch.ok) ctx.drawImage(IMG.pitch, 1, 1, 780, 450, 0, 0, W * S, H * S);
     else { ctx.fillStyle = '#2f7a37'; ctx.fillRect(0, 0, W * S, H * S); }
+    /* paleta aguacate: aclara y calienta el césped sin tocar la textura */
+    ctx.save(); ctx.globalCompositeOperation = 'screen'; ctx.fillStyle = '#8f9a52'; ctx.globalAlpha = 0.42; ctx.fillRect(0, 0, W * S, H * S); ctx.restore();
     ctx.fillStyle = G.teams[0].color + '40'; ctx.fillRect(0, 0, S, H * S);
     ctx.fillStyle = G.teams[1].color + '40'; ctx.fillRect((W - 1) * S, 0, S, H * S);
     if ((ui.phase === 'setup' || ui.phase === 'snap') && ui.limit) for (const p of ui.limit.open) if (p.loc === 'pitch') { ctx.fillStyle = ui.limit.moved.has(p) ? '#ffffff30' : '#f2b63250'; ctx.fillRect(p.x * S + 2, p.y * S + 2, S - 4, S - 4); }
