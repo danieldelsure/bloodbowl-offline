@@ -3169,14 +3169,17 @@ if (!HEADLESS) (function () {
   function sqOf(ev) { const r = cv.getBoundingClientRect(); return [Math.floor((ev.clientX - r.left) / S), Math.floor((ev.clientY - r.top) / S)]; }
   cv.addEventListener('click', ev => {
     const [x, y] = sqOf(ev); if (!inPitch(x, y) || !G) return;
+    if (fromTouch()) { ui.hover = null; hoverAt(x, y); }
     if (reviewing) { const q = playerAt(x, y); if (q) card(q); return; }
     if (ui.pick) { if (ui.pick.ok(x, y)) { const p = ui.pick; ui.pick = null; p.res([x, y]); } else { const m = $('msg'); m.classList.remove('blink'); void m.offsetWidth; m.classList.add('blink'); } return; }
     if (ui.phase === 'setup' || ui.phase === 'snap') { clickSetup(x, y); return; }
     if (ui.phase === 'turn') guard(() => clickTurn(x, y));
     else { const q = playerAt(x, y); if (q) card(q); }
   });
-  cv.addEventListener('mousemove', ev => {
-    if (!G) return; const [x, y] = sqOf(ev); if (!inPitch(x, y)) return;
+  let lastTouch = 0; cv.addEventListener('touchstart', () => { lastTouch = Date.now(); }, { passive: true });
+  const fromTouch = () => Date.now() - lastTouch < 1000;
+  function hoverAt(x, y) {
+    if (!G || !inPitch(x, y)) return;
     if (ui.hover && ui.hover[0] === x && ui.hover[1] === y) return;
     ui.hover = [x, y];
     const q = playerAt(x, y);
@@ -3189,7 +3192,9 @@ if (!HEADLESS) (function () {
       showSel(n ? (n.prob >= 0.999 ? 'Movimiento seguro, sin tiradas' : `Éxito aproximado <b>${Math.round(n.prob * 100)}%</b> (${n.rolls} tirada${n.rolls > 1 ? 's' : ''})`) : '');
     }
     draw();
-  });
+  }
+  /* en iPhone el mousemove que cambia contenido se come el clic: con el dedo se ignora y la info se muestra dentro del clic */
+  cv.addEventListener('mousemove', ev => { if (fromTouch()) return; const [x, y] = sqOf(ev); hoverAt(x, y); });
   cv.addEventListener('mouseleave', () => { ui.hover = null; draw(); });
 
   function modeBtn(id, mode) { $(id).onclick = () => { if (ui.busy || !ui.sel || ui.sel.started) return; ui.mode = ui.mode === mode ? 'move' : mode; refresh(); msg(hint()); }; }
