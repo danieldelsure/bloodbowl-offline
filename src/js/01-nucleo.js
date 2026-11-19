@@ -36,7 +36,14 @@ function restoreG(str) {
   };
   fix(g); G = g; return G;
 }
-const d = n => 1 + Math.floor(Math.random() * n);
+/* dados: en el navegador salen del generador criptográfico del sistema (crypto.getRandomValues), con rechazo para no sesgar; en las simulaciones se usa Math.random por velocidad */
+const RBUF = (!HEADLESS && typeof crypto !== 'undefined' && crypto.getRandomValues) ? new Uint32Array(256) : null; let rpos = 256;
+const d = n => {
+  if (!RBUF) return 1 + Math.floor(Math.random() * n);
+  const lim = 4294967296 - (4294967296 % n); let x;
+  do { if (rpos >= 256) { crypto.getRandomValues(RBUF); rpos = 0; } x = RBUF[rpos++]; } while (x >= lim);
+  return 1 + (x % n);
+};
 const d6 = () => d(6);
 const inPitch = (x, y) => x >= 0 && x < W && y >= 0 && y < H;
 const idx = (x, y) => y * W + x;
