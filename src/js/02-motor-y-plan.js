@@ -203,8 +203,8 @@ async function applyInjury(p, bonus, crowd, by) {
   }
   if (kind === 'ko') {
     log(head + 'inconsciente (KO)', 'bad');
-    if (t.apo > 0 && await t.ctrl.confirm('apoKO', `${nm(p)} quedó inconsciente (KO). ¿Usar el boticario? Solo se puede una vez por partido. Se quedaría ${crowd ? 'en la reserva' : 'en el campo, aturdido'}.`, p)) {
-      t.apo--; log(`El boticario reanima a ${nm(p)}`, 'good');
+    if (t.apo > 0 && await t.ctrl.confirm('apoKO', `${nm(p)} quedó inconsciente (KO). ¿Usar el apotecario? Solo se puede una vez por partido. Se quedaría ${crowd ? 'en la reserva' : 'en el campo, aturdido'}.`, p)) {
+      t.apo--; log(`El apotecario reanima a ${nm(p)}`, 'good');
       if (crowd) removeFromPitch(p, 'reserve'); else { p.state = 'stunned'; p.stunStart = false; }
     } else removeFromPitch(p, 'ko');
     return [a, b];
@@ -218,10 +218,10 @@ async function applyInjury(p, bonus, crowd, by) {
   const dec = has(p, 'Decay') ? 1 : 0;
   let c = kind === 'bh' ? 1 : Math.min(16, d(16) + dec);
   log(`Lesión de ${nm(p)}${kind === 'bh' ? '' : ' (D16: ' + c + ')'}: ${CAS(c)}`, 'bad');
-  if (t.apo > 0 && await t.ctrl.confirm('apoCas', `${nm(p)} sufre una baja: ${CAS(c)}. ¿Usar el boticario? Solo se puede una vez por partido. Se tira otra vez y te quedas con el mejor resultado.`, p)) {
+  if (t.apo > 0 && await t.ctrl.confirm('apoCas', `${nm(p)} sufre una baja: ${CAS(c)}. ¿Usar el apotecario? Solo se puede una vez por partido. Se tira otra vez y te quedas con el mejor resultado.`, p)) {
     t.apo--;
     const c2 = kind === 'bh' ? 1 : Math.min(16, d(16) + dec); c = Math.min(c, c2);
-    log(`Boticario${kind === 'bh' ? '' : ' (D16: ' + c2 + ')'}: queda como ${CAS(c)}`, 'good');
+    log(`Apotecario${kind === 'bh' ? '' : ' (D16: ' + c2 + ')'}: queda como ${CAS(c)}`, 'good');
     if (c <= 8) { removeFromPitch(p, 'reserve'); log(`${nm(p)} queda parchado y va a la reserva`, 'good'); return [a, b]; }
   }
   removeFromPitch(p, 'cas');

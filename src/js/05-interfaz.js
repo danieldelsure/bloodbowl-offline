@@ -100,7 +100,7 @@ if (!HEADLESS) (function () {
       ui.phase = 'idle'; ui.sel = null; ui.limit = null; refresh(); msg('Patada inicial…');
     }
     async confirm(kind, text) {
-      const title = { apoKO: 'Boticario', apoCas: 'Boticario', bribe: 'Soborno', taunt: 'Taunt', highKick: 'Patada alta' }[kind] || 'Decisión';
+      const title = { apoKO: 'Apotecario', apoCas: 'Apotecario', bribe: 'Soborno', taunt: 'Taunt', highKick: 'Patada alta' }[kind] || 'Decisión';
       return ask(`<h2>${title}</h2><p>${text}</p>`, [{ label: 'Sí', value: true, primary: true }, { label: 'No', value: false }]);
     }
     async chooseKick() {
@@ -262,7 +262,7 @@ if (!HEADLESS) (function () {
       el.style.background = t.color;
       el.querySelector('.nm').textContent = t.name + (i === HT ? ' (tú)' : ' (IA)');
       $('sc' + i).textContent = t.score;
-      el.querySelector('.meta').textContent = `Rerolls ${rrLeft(t)} · Boticario ${t.apo}${t.bribes ? ' · Sobornos ' + t.bribes : ''} · Reserva ${count(i, 'reserve')} · KO ${count(i, 'ko')} · Bajas ${count(i, 'cas') + count(i, 'sent')}`;
+      el.querySelector('.meta').textContent = `Rerolls ${rrLeft(t)} · Apotecario ${t.apo}${t.bribes ? ' · Sobornos ' + t.bribes : ''} · Reserva ${count(i, 'reserve')} · KO ${count(i, 'ko')} · Bajas ${count(i, 'cas') + count(i, 'sent')}`;
       el.classList.toggle('active-team', G.phase === 'turn' && G.active === i);
     }
     dugouts();
@@ -349,7 +349,7 @@ if (!HEADLESS) (function () {
   render = () => { if (SIM) return; header(); draw(); };
   flash = t => { if (SIM) return; const f = $('flash'); f.textContent = t; f.style.opacity = 1; setTimeout(() => { f.style.opacity = 0; }, 1100); };
   const addLog = (t, cls) => { const el = document.createElement('div'); if (cls) el.className = cls; el.textContent = t; const L = $('log'); L.appendChild(el); L.scrollTop = L.scrollHeight; };
-  let ulog = [], curMode = 'quick', lastSnap = null;
+  let ulog = [], curMode = 'quick', lastSnap = null, hist = [], reviewing = false;
   onLog = (t, cls) => { ulog.push([t, cls]); if (ulog.length > 160) ulog.shift(); addLog(t, cls); };
 
   /* ----- turno humano ----- */
@@ -572,6 +572,7 @@ if (!HEADLESS) (function () {
   function sqOf(ev) { const r = cv.getBoundingClientRect(); return [Math.floor((ev.clientX - r.left) / S), Math.floor((ev.clientY - r.top) / S)]; }
   cv.addEventListener('click', ev => {
     const [x, y] = sqOf(ev); if (!inPitch(x, y) || !G) return;
+    if (reviewing) { const q = playerAt(x, y); if (q) card(q); return; }
     if (ui.pick) { if (ui.pick.ok(x, y)) { const p = ui.pick; ui.pick = null; p.res([x, y]); } else { const m = $('msg'); m.classList.remove('blink'); void m.offsetWidth; m.classList.add('blink'); } return; }
     if (ui.phase === 'setup' || ui.phase === 'snap') { clickSetup(x, y); return; }
     if (ui.phase === 'turn') guard(() => clickTurn(x, y));
@@ -610,14 +611,49 @@ if (!HEADLESS) (function () {
     const r = ui.setupRes; ui.setupRes = null; if (r) r();
   };
   $('speed').onchange = e => { DELAY = +e.target.value; };
+  /* ----- revisión de turnos ya jugados: solo lectura, sin tocar la partida en curso ----- */
+  async function reviewTurns() {
+    const liveG = G, liveStr = snapG(), prev = { phase: ui.phase, sel: ui.sel, mode: ui.mode, moves: ui.moves, hl: ui.hl, pick: ui.pick, hover: ui.hover, msg: $('msg').innerHTML, dfx: $('dfx').style.display };
+    const items = hist.concat([{ str: liveStr, now: true, score: liveG.teams[0].score + ' a ' + liveG.teams[1].score, label: 'Ahora (donde va la partida)' }]);
+    let i = Math.max(0, items.length - 2);
+    const bar = document.createElement('div'); bar.id = 'reviewBar';
+    bar.innerHTML = '<div class="rv-t"><b>Modo revisión</b><span>solo lectura</span></div><button id="rvPrev">◀ Anterior</button><div class="rv-m" id="rvInfo"></div><button id="rvNext">Siguiente ▶</button><button id="rvExit" class="primary">Volver a la pausa</button>';
+    document.body.appendChild(bar);
+    reviewing = true; document.body.classList.add('reviewing'); $('dfx').style.display = 'none';
+    const show = () => {
+      const it = items[i];
+      restoreG(it.str);
+      ui.phase = 'review'; ui.sel = null; ui.mode = 'move'; ui.moves = new Map(); ui.hl = null; ui.pick = null; ui.hover = null; dugSig = ['', ''];
+      header(); buttons(); draw(); card(null); showSel();
+      $('rvInfo').innerHTML = `<b>${it.label}</b><small>${it.now ? '' : 'Estado al empezar ese turno · '}Marcador ${it.score} · ${i + 1} de ${items.length}</small>`;
+      $('rvPrev').disabled = i === 0; $('rvNext').disabled = i === items.length - 1;
+      msg(it.now ? '<b>Revisión.</b> Esto es la partida tal como está ahora. No se puede cambiar nada desde acá.' : '<b>Revisión.</b> Estás viendo el tablero justo antes de que jugara ese turno. Pasa el cursor sobre un jugador para ver su ficha.');
+    };
+    await new Promise(done => {
+      const go = d => { const n = i + d; if (n >= 0 && n < items.length) { i = n; show(); } };
+      const key = ev => { if (ev.key === 'ArrowLeft') go(-1); else if (ev.key === 'ArrowRight') go(1); else if (ev.key === 'Escape') end(); else return; ev.preventDefault(); ev.stopPropagation(); };
+      const end = () => { document.removeEventListener('keydown', key, true); done(); };
+      $('rvPrev').onclick = () => go(-1); $('rvNext').onclick = () => go(1); $('rvExit').onclick = end;
+      document.addEventListener('keydown', key, true);
+      show();
+    });
+    bar.remove(); reviewing = false; document.body.classList.remove('reviewing');
+    G = liveG; Object.assign(ui, { phase: prev.phase, sel: prev.sel, mode: prev.mode, moves: prev.moves, hl: prev.hl, pick: prev.pick, hover: prev.hover });
+    $('dfx').style.display = prev.dfx; dugSig = ['', '']; header(); buttons(); draw(); card(null); showSel(); msg(prev.msg);
+  }
   async function pauseMenu() {
-    if (!G || G.phase === 'over' || ui.phase === 'menu' || !$('modal').hidden || !lastSnap || !(G.mgr || G.teams[0].ctrl instanceof Human)) return;
+    if (reviewing || !G || G.phase === 'over' || ui.phase === 'menu' || !$('modal').hidden || !lastSnap || !(G.mgr || G.teams[0].ctrl instanceof Human)) return;
     setPause(true);
     const live = ui.phase === 'turn' && !ui.busy && !ui.pick && G.phase === 'turn' && G.active === 0;
     const where = lastSnap.k === 'drive' ? 'la formación de esta entrada' : `el inicio de este turno de ${G.teams[lastSnap.a].name}`;
     const note = live ? 'Se guarda la partida tal como está ahora.' : `Hay una jugada en curso: se guarda desde ${where}.`;
-    const c = await ask(`<h2>Pausa</h2><p>${matchDesc()}</p><p class="sub">${note}</p>`,
-      [{ label: 'Continuar', value: 'go', primary: true }, { label: 'Guardar partida', value: 'save' }, { label: 'Guardar y volver al menú', value: 'savemenu' }, { label: 'Descargar archivo de guardado', value: 'dl' }, { label: 'Salir sin guardar', value: 'quit' }]);
+    let c;
+    for (;;) {
+      c = await ask(`<h2>Pausa</h2><p>${matchDesc()}</p><p class="sub">${note}</p>`,
+      [{ label: 'Continuar', value: 'go', primary: true }, { label: 'Ver turnos anteriores', value: 'rev' }, { label: 'Guardar partida', value: 'save' }, { label: 'Guardar y volver al menú', value: 'savemenu' }, { label: 'Descargar archivo de guardado', value: 'dl' }, { label: 'Salir sin guardar', value: 'quit' }]);
+      if (c !== 'rev') break;
+      await reviewTurns();
+    }
     const snap = live ? { k: 'turn', a: 0, str: snapG(), desc: matchDesc() } : lastSnap;
     if (c === 'save' || c === 'savemenu' || c === 'dl') {
       const ok = storeMatch(snap, live);
@@ -691,7 +727,7 @@ if (!HEADLESS) (function () {
   function storeMatch(snap, live) {
     try { localStorage.setItem(MSAVE, JSON.stringify({ v: 1, mode: curMode, k: snap.k, a: snap.a, live: !!live, str: snap.str, ulog, desc: snap.desc || matchDesc(), t: Date.now() })); return true; } catch (e) { return false; }
   }
-  snapHook = (k, a) => { if (SIM || !G || !(G.mgr || G.teams[0].ctrl instanceof Human)) return; lastSnap = { k, a, str: snapG(), desc: matchDesc() }; storeMatch(lastSnap, false); };
+  snapHook = (k, a) => { if (SIM || !G || !(G.mgr || G.teams[0].ctrl instanceof Human)) return; lastSnap = { k, a, str: snapG(), desc: matchDesc() }; storeMatch(lastSnap, false); hist.push({ str: lastSnap.str, score: G.teams[0].score + ' a ' + G.teams[1].score, label: k === 'drive' ? `Mitad ${G.half} · formación de una nueva entrada` : `Mitad ${G.half} · turno ${G.turn[a] + 1} de ${G.teams[a].name}` }); if (hist.length > 60) hist.shift(); };
 
 
   /* ----- alineación: elegir quién entra a la cancha ----- */
@@ -787,6 +823,7 @@ if (!HEADLESS) (function () {
   }
   coachHook = async why => { if (SIM || !G || !G.mgr) return; await coachPanel(why); };
   async function playMatch(a, b, rs, mgr) {
+    hist = [];
     if (rs) { restoreG(rs.str); ulog = (rs.ulog || []).slice(); } else { newGame(a, b); ulog = []; G.mgr = !!mgr; }
     if (G.mgr && !G.teams[0].plan) G.teams[0].plan = loadPlan();
     G.teams[0].ctrl = G.mgr ? new AI2(0) : new Human(0); G.teams[1].ctrl = new AI2(1);
@@ -832,7 +869,7 @@ if (!HEADLESS) (function () {
   }
   const trioHtml = (t, z) => trio(t).map((p, k) => `<canvas data-s="${p.sheet}" data-var="${p.variant}" data-z="${k === 1 ? z * 1.25 : z}" class="tr${k}"></canvas>`).join('');
   async function newTournament() {
-    const rosterHtml = i => { const t = tn(i); return `<div class="tp-hd"><div class="tp-trio" style="background:${bg(i)}">${trioHtml(t, 96)}</div><div><h3>${t.name}</h3><div class="tp-meta">${t.race} · ${t.coach} · TV ${t.tv}</div><p class="sub">${t.rr} rerolls${t.apo ? ' · boticario' : ''}${t.coaches ? ' · ' + t.coaches + ' ayudantes' : ''}${t.cheer ? ' · ' + t.cheer + ' animadoras' : ''}${t.kegs ? ' · barril de cerveza' : ''}</p></div></div><table><tr><th>Jugador</th><th>Posición</th><th class="n">MA</th><th class="n">ST</th><th class="n">AG</th><th class="n">PA</th><th class="n">AV</th><th>Habilidades</th></tr>` +
+    const rosterHtml = i => { const t = tn(i); return `<div class="tp-hd"><div class="tp-trio" style="background:${bg(i)}">${trioHtml(t, 96)}</div><div><h3>${t.name}</h3><div class="tp-meta">${t.race} · ${t.coach} · TV ${t.tv}</div><p class="sub">${t.rr} rerolls${t.apo ? ' · apotecario' : ''}${t.coaches ? ' · ' + t.coaches + ' ayudantes' : ''}${t.cheer ? ' · ' + t.cheer + ' animadoras' : ''}${t.kegs ? ' · barril de cerveza' : ''}</p></div></div><table><tr><th>Jugador</th><th>Posición</th><th class="n">MA</th><th class="n">ST</th><th class="n">AG</th><th class="n">PA</th><th class="n">AV</th><th>Habilidades</th></tr>` +
       t.players.map(p => `<tr><td>${p.name}</td><td>${p.pos}</td><td class="n">${p.ma}</td><td class="n">${p.st}</td><td class="n">${p.ag}+</td><td class="n">${p.pa ? p.pa + '+' : '-'}</td><td class="n">${p.av}+</td><td>${p.sk.map(k => p.ex.includes(k) ? `<b class="xs">${k} ★</b>` : k).join(', ')}</td></tr>`).join('') + '</table><p class="sub"><b class="xs">★</b> habilidad extra que el entrenador agregó a ese jugador.</p>'; };
     /* equipos con el mismo trío: fondo de otro tono, y orden de la grilla sin repetidos pegados */
     const sig = TDC.teams.map(t => trio(t).map(p => p.sheet).join('|')), seen = {}, tone = TDC.teams.map((t, i) => { const k = seen[sig[i]] = (seen[sig[i]] || 0) + 1; return k - 1; });
