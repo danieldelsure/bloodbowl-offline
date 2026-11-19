@@ -849,7 +849,8 @@ if (!HEADLESS) (function () {
     const cards = order.map(i => { const t = TDC.teams[i]; return `<button class="tc${i === first ? ' on' : ''}" data-t="${i}"><div class="tc-art" style="background:${bg(i)}">${trioHtml(t, 64)}</div><b>${t.name}</b><i>${t.race}</i><em>${t.coach} · TV ${t.tv}</em></button>`; }).join('');
     let cur = first;
     const pr = ask(`<h2>${TDC.name}</h2><p class="sub" style="margin:0 0 10px">Elige uno de los 16 equipos, tal como lo armó su entrenador, e intenta ganar el torneo. ${TDC.rounds} rondas en sistema suizo: la primera usa los cruces reales y las siguientes dependen de tu resultado y de los demás.</p>
-      <div class="tp"><div class="tp-grid">${cards}</div><div class="tp-side"><div id="rosterPrev">${rosterHtml(first)}</div><label>Modo</label><div class="modeopt"><label><input type="radio" name="mode" value="p" checked>Jugador: tú mueves a tu equipo</label><label><input type="radio" name="mode" value="m">Manager: defines la táctica y la IA juega</label></div></div></div>`,
+      <div class="tp-mode">Modo de juego<div class="modeopt"><label><input type="radio" name="mode" value="p" checked>Jugador: tú mueves a tu equipo</label><label><input type="radio" name="mode" value="m">Manager: defines la táctica y la IA juega</label></div></div>
+      <div class="tp"><div class="tp-grid">${cards}</div><div class="tp-side"><div id="rosterPrev">${rosterHtml(first)}</div><label>Modo</label><div class="modeopt"><label><input type="radio" name="mode" value="p" checked>Jugador: tú mueves a tu equipo</label><label><input type="radio" name="mode" value="m">Manager: defines la táctica y la IA juega</label></div></div>`,
       [{ label: 'Empezar torneo', value: 1, primary: true }, { label: 'Volver', value: 0 }], true, 'teams', () => {
         const box = $('modalBody');
         paintTrio(box);
