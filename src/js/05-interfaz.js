@@ -208,14 +208,47 @@ if (!HEADLESS) (function () {
     window.addEventListener('orientationchange', () => setTimeout(() => { applyMob(); if (G) resize(); }, 250));
     applyMob(); window.addEventListener('resize', applyMob);
   })();
+  /* zoom de la cancha en celular: botones, pellizco y arrastre con un dedo */
+  let zoom = 1; const ZMAX = 3.2;
+  function setZoom(z, fx, fy) {
+    const bf = $('bframe'), nz = Math.min(ZMAX, Math.max(1, z)); if (nz === zoom) return;
+    const px = fx == null ? 0.5 : fx, py = fy == null ? 0.5 : fy;
+    const cx = (bf.scrollLeft + bf.clientWidth * px) / (bf.scrollWidth || 1), cy = (bf.scrollTop + bf.clientHeight * py) / (bf.scrollHeight || 1);
+    zoom = nz; resize();
+    bf.scrollLeft = cx * bf.scrollWidth - bf.clientWidth * px; bf.scrollTop = cy * bf.scrollHeight - bf.clientHeight * py;
+    const zc = $('zctl'); if (zc) { zc.querySelector('[data-z=out]').disabled = zoom <= 1.001; zc.querySelector('[data-z=in]').disabled = zoom >= ZMAX - 0.001; }
+  }
+  (function zoomCtl() {
+    const z = document.createElement('div'); z.id = 'zctl';
+    const fs = document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen;
+    z.innerHTML = '<button data-z="out" aria-label="Alejar" disabled>−</button><button data-z="in" aria-label="Acercar">+</button>' + (fs ? '<button data-z="fs" aria-label="Pantalla completa">⛶</button>' : '');
+    $('boardWrap').appendChild(z);
+    z.onclick = ev => {
+      const b = ev.target.closest('button'); if (!b) return; ev.stopPropagation();
+      if (b.dataset.z === 'in') setZoom(zoom * 1.5); else if (b.dataset.z === 'out') setZoom(zoom / 1.5);
+      else { const d = document, fsEl = d.fullscreenElement || d.webkitFullscreenElement; if (fsEl) (d.exitFullscreen || d.webkitExitFullscreen).call(d); else (document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen).call(document.documentElement); }
+    };
+    const bf = $('bframe'); let pin = null, raf = 0;
+    const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    bf.addEventListener('touchstart', e => { if (e.touches.length === 2 && document.body.classList.contains('mob')) pin = { d: dist(e.touches), z: zoom }; }, { passive: true });
+    bf.addEventListener('touchmove', e => {
+      if (!pin || e.touches.length !== 2) return; e.preventDefault();
+      const r = bf.getBoundingClientRect(), fx = ((e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left) / r.width, fy = ((e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top) / r.height, nz = pin.z * dist(e.touches) / pin.d;
+      if (!raf) raf = requestAnimationFrame(() => { raf = 0; setZoom(nz, fx, fy); });
+    }, { passive: false });
+    bf.addEventListener('touchend', e => { if (e.touches.length < 2) pin = null; }, { passive: true });
+  })();
   function resize() {
     applyMob();
     const mob = document.body.classList.contains('mob');
     const w = mob ? $('boardWrap').clientWidth - $('bottom').offsetWidth - 34 : $('boardWrap').clientWidth - 44;
     const hAvail = mob ? window.innerHeight - $('boardWrap').getBoundingClientRect().top - $('msg').offsetHeight - 28 : window.innerHeight - $('boardWrap').getBoundingClientRect().top - $('msg').offsetHeight - 262;
-    S = Math.max(mob ? 12 : 16, Math.floor(Math.min(w / W, hAvail / H)));
-    const dpr = window.devicePixelRatio || 1;
-    cv.width = W * S * dpr; cv.height = H * S * dpr; cv.style.width = W * S + 'px'; cv.style.height = H * S + 'px';
+    const S0 = Math.max(mob ? 12 : 16, Math.floor(Math.min(w / W, hAvail / H)));
+    const bf = $('bframe');
+    if (mob) { S = Math.round(S0 * zoom); bf.style.maxWidth = (w + 10) + 'px'; bf.style.maxHeight = (hAvail + 10) + 'px'; }
+    else { S = S0; zoom = 1; bf.style.maxWidth = bf.style.maxHeight = ''; }
+    const dpr = Math.min(window.devicePixelRatio || 1, 4096 / (W * S));
+    cv.width = Math.round(W * S * dpr); cv.height = Math.round(H * S * dpr); cv.style.width = W * S + 'px'; cv.style.height = H * S + 'px';
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); draw();
   }
   function spriteTo(c, p, size) {
@@ -866,7 +899,7 @@ if (!HEADLESS) (function () {
     return [
       { sel: ['#mid'], t: 'Marcador', x: 'Arriba ves el marcador, la mitad, el turno y el clima. A los lados, tu equipo (izquierda, azul) y el rival (derecha, rojo) con sus rerolls, apotecario, reservas, KO y bajas.' },
       { sel: ['#msg'], t: 'Barra de mensajes', x: 'Aquí el juego te dice qué toca hacer en cada momento: elegir jugadores, patear, mover, bloquear. Si dudas qué hacer, léela primero.' },
-      { sel: ['#bframe'], t: 'La cancha', x: 'Toca (o haz clic en) uno de tus jugadores para seleccionarlo. Se marcan las casillas a las que puede ir, y tocas una para moverlo. Para bloquear, toca al rival al que quieres golpear.' },
+      { sel: ['#bframe'], t: 'La cancha', x: 'Toca (o haz clic en) uno de tus jugadores para seleccionarlo. Se marcan las casillas a las que puede ir, y tocas una para moverlo. Para bloquear, toca al rival al que quieres golpear.' + (mob ? ' En el celular puedes acercar la cancha con los botones + y −, o pellizcando, y moverla arrastrando con un dedo.' : '') },
       mob
         ? { sel: ['#mbar'], t: 'Fichas y registro', x: 'Mi ficha, Rival y Registro abren paneles al costado. Además, cada vez que tocas un jugador aparece un cartel abajo con su equipo y sus habilidades. Toca fuera del panel para cerrarlo.' }
         : { sel: ['#sideL'], t: 'Tu ficha', x: 'Aquí ves la ficha del jugador tuyo que seleccionaste: sus estadísticas y habilidades. Abajo están tus reservas, KO y bajas. Las habilidades con ★ son extras que el entrenador le dio.' },
