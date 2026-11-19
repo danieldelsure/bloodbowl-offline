@@ -315,3 +315,19 @@ body.mob #mtip .sk{color:var(--dim);flex-basis:100%}
 .vsb span{font:600 12px var(--body);color:var(--dim)}
 .vsb .vsx{align-self:center;padding:0 8px;font:900 20px var(--disp);color:var(--ink)}
 body.mob .vsb b{font-size:18px} body.mob .vsb .vt{padding:5px 10px}
+
+#tut{position:fixed;inset:0;z-index:60}
+#tutHole{position:fixed;border-radius:4px;box-shadow:0 0 0 9999px #000b;outline:3px solid #f2b632;transition:left .25s,top .25s,width .25s,height .25s;pointer-events:none}
+#tutBox{position:fixed;width:min(340px,calc(100vw - 16px));background:var(--bone);color:var(--ink);border-left:8px solid #f2b632;padding:12px 14px;box-shadow:8px 8px 0 #000a}
+#tutBox .tk{font:700 11px var(--body);letter-spacing:.1em;text-transform:uppercase;color:#6b6f77}
+#tutBox h3{margin:2px 0 4px;font:900 22px/1.05 var(--disp);text-transform:uppercase}
+#tutBox p{margin:0 0 10px;font:500 14px/1.4 var(--body)}
+#tutBox .tb{display:flex;gap:8px;align-items:center}
+#tutBox .sp{flex:1}
+#tutBox button{font:800 14px var(--disp);padding:7px 14px;border:0;background:var(--ink);color:var(--bone);cursor:pointer;text-transform:uppercase}
+#tutBox button.primary{background:var(--acc)}
+#tutBox button.ghost{background:transparent;color:#6b6f77}
+body.mob #tutBox{width:min(290px,calc(100vw - 16px));padding:8px 10px}
+body.mob #tutBox h3{font-size:17px}
+body.mob #tutBox p{font-size:12px;line-height:1.3;margin-bottom:6px}
+body.mob #tutBox button{padding:6px 10px;font-size:13px}
