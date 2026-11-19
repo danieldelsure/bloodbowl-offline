@@ -15,6 +15,7 @@ if (!HEADLESS) (function () {
   /* ----- modal ----- */
   function ask(html, buttons, wide, cls, after) {
     return new Promise(res => {
+      delete document.body.dataset.drawer;
       $('modalBox').className = (wide ? 'wide ' : '') + (cls || '');
       $('modalBody').innerHTML = html; const bx = $('modalBtns'); bx.innerHTML = '';
       const close = v => { $('modal').hidden = true; res(v); };
@@ -191,9 +192,28 @@ if (!HEADLESS) (function () {
   }
 
   /* ----- dibujo ----- */
+  /* celular en horizontal: el mismo juego, con los paneles laterales como cajones y los botones en una columna a la derecha */
+  const mobQ = () => window.innerHeight <= 540 && window.innerWidth > window.innerHeight;
+  function applyMob() { const m = mobQ(); document.body.classList.toggle('mob', m); if (!m) delete document.body.dataset.drawer; }
+  (function mobBar() {
+    const bar = document.createElement('div'); bar.id = 'mbar';
+    bar.innerHTML = '<button data-d="L">Mi ficha</button><button data-d="R">Rival</button><button data-d="log">Registro</button>';
+    $('bottom').insertBefore(bar, $('bottom').firstChild);
+    bar.onclick = ev => { const b = ev.target.closest('button'); if (!b) return; const cur = document.body.dataset.drawer; if (cur === b.dataset.d) delete document.body.dataset.drawer; else document.body.dataset.drawer = b.dataset.d; };
+    document.addEventListener('click', ev => {
+      const d = document.body.dataset.drawer; if (!d) return;
+      if (ev.target.closest('#mbar') || ev.target.closest('#sideL') || ev.target.closest('#sideR') || ev.target.closest('#log') || ev.target.closest('#modal')) return;
+      delete document.body.dataset.drawer; ev.stopPropagation(); ev.preventDefault();
+    }, true);
+    window.addEventListener('orientationchange', () => setTimeout(() => { applyMob(); if (G) resize(); }, 250));
+    applyMob(); window.addEventListener('resize', applyMob);
+  })();
   function resize() {
-    const w = $('boardWrap').clientWidth - 44, hAvail = window.innerHeight - $('boardWrap').getBoundingClientRect().top - $('msg').offsetHeight - 262;
-    S = Math.max(16, Math.floor(Math.min(w / W, hAvail / H)));
+    applyMob();
+    const mob = document.body.classList.contains('mob');
+    const w = mob ? $('boardWrap').clientWidth - $('bottom').offsetWidth - 34 : $('boardWrap').clientWidth - 44;
+    const hAvail = mob ? window.innerHeight - $('boardWrap').getBoundingClientRect().top - $('msg').offsetHeight - 28 : window.innerHeight - $('boardWrap').getBoundingClientRect().top - $('msg').offsetHeight - 262;
+    S = Math.max(mob ? 12 : 16, Math.floor(Math.min(w / W, hAvail / H)));
     const dpr = window.devicePixelRatio || 1;
     cv.width = W * S * dpr; cv.height = H * S * dpr; cv.style.width = W * S + 'px'; cv.style.height = H * S + 'px';
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); draw();
