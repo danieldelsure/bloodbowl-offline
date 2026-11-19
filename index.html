@@ -2159,6 +2159,7 @@ class AI2 extends AI {
     const goalSide = this.t === 0 ? bx > 12 : bx < 13;
     const mid = c ? by : 7;
     t.push([bx + g, by]);
+    if (AI2.f.press && c) { t.push([bx, by - 1]); t.push([bx, by + 1]); }   // presión: dos marcadores más pegados al portador rival
     for (const k of [0, -2, 2, -4, 4, -6, 6]) { t.push([x1, mid + k]); }
     for (const k of [0, -2, 2, -4, 4]) t.push([x2 + g * 0, mid + k + 1]);
     return t.filter(([x, y]) => y >= 0 && y < H);
@@ -2254,7 +2255,7 @@ class AI2 extends AI {
     await this.doBlocks(1);
   }
 }
-AI2.v = 0; AI2.f = { pcost: 2.5, advW: 1.15, expW: 1, foul: 1, foulMin: 0.45, def: 1, kick: 0, adv: 1, dodge: 1, free: 2, rush: 1, thr: 1, runner: 1, pass: 1 };
+AI2.v = 0; AI2.f = { pcost: 2.5, press: 1, advW: 1.15, expW: 1, foul: 1, foulMin: 0.45, def: 1, kick: 0, adv: 1, dodge: 1, free: 2, rush: 1, thr: 1, runner: 1, pass: 1 };
 class AI2b extends AI2 {}
 
 /* =====================================================================
