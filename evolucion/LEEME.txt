@@ -1,0 +1,45 @@
+EVOLUCION DE LA IA2
+===================
+
+Qué hace
+--------
+Cada generación crea 15 "hijos" del campeón actual, cada uno con pequeñas variaciones en 14 perillas
+de la IA2 (peso del avance, riesgo de bloqueos, costo de pases, presión, etc.).
+Cada hijo juega contra el campeón, contra sus ancestros y contra la IA2 de fábrica.
+Si el mejor hijo supera 55%, juega una segunda ronda de confirmación con partidas nuevas
+(para descartar que haya sido pura suerte). Si la confirma, es el nuevo campeón.
+
+Cómo usarlo
+-----------
+1. Necesitas Node.js 18 o más nuevo (nodejs.org).
+2. Deja index.html y evolucion.js en la misma carpeta.
+3. Abre una terminal en esa carpeta y ejecuta:
+
+       node evolucion.js
+
+   Opciones (todas opcionales):
+       --horas 10       se detiene solo a las 10 horas
+       --hijos 15       hijos por generación
+       --pares 50       partidas por hijo = pares x 2 (más pares = menos ruido, más lento)
+       --nucleos 4      núcleos a usar (por defecto, todos los del computador)
+       --reiniciar      empieza de cero y borra el estado anterior
+
+4. Se puede cortar con Ctrl+C y retomar con el mismo comando. Todo queda guardado.
+   Deja el computador enchufado y sin suspensión.
+
+Qué te deja
+-----------
+ evolucion_log.txt        el registro de cada generación (y un chequeo cada 5 generaciones
+                          del campeón contra la IA2 de fábrica y contra la IA base)
+ mejores_parametros.json  los valores del campeón actual
+ evolucion_estado.json    el estado completo para retomar
+
+Al terminar, mándame mejores_parametros.json y evolucion_log.txt y los dejo como estándar.
+
+Cómo leer los resultados
+------------------------
+- Una generación tarda unos 3 a 6 minutos según el computador.
+- El ruido es de unos +-4 puntos con 100 partidas y +-3 con 200. Por eso los hijos no se aceptan
+  hasta pasar la confirmación.
+- Si tras 20 o 30 generaciones el chequeo contra la IA2 de fábrica no pasa de 52%, las perillas
+  ya estaban casi en su mejor punto y no hay más que ganar por este camino.

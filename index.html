@@ -1555,7 +1555,8 @@ async function runMatch(rs) {
    IA
    ===================================================================== */
 class AI {
-  constructor(t) { this.t = t; }
+  constructor(t, f) { this.t = t; if (f) this._f = Object.assign({}, AI2.f, f); }   // f: perillas propias de esta instancia (para la evolución)
+  get f() { return this._f || AI2.f; }
   get team() { return G.teams[this.t]; }
   over() { return G.turnover || G.td != null; }
   mine() { return this.team.players.filter(p => p.loc === 'pitch'); }
@@ -1908,7 +1909,7 @@ class AI {
       targets = [[bx + dr, by + 1], [bx + dr, by - 1], [bx - dr, by + 1], [bx - dr, by - 1]];
       for (const k of [0, -3, 3, -6, 6]) targets.push([bx + 3 * dr, by + k]);
       targets.push([bx + 5 * dr, by - 2], [bx + 5 * dr, by + 2]);
-    } else if (AI2.f.def && this.defTargets) {
+    } else if (this.f.def && this.defTargets) {
       targets = this.defTargets(bx, by, g, c);
     } else {
       targets = [[bx + g, by], [bx + g, by - 1], [bx + g, by + 1], [bx, by - 1], [bx, by + 1]];
@@ -1917,7 +1918,7 @@ class AI {
     targets = targets.filter(([x, y]) => inPitch(x, y)).filter(([x, y]) => { const q = playerAt(x, y); return !(q && q.team === this.t && hasTZ(q) && (q.used || q === c)); });
     const ps = this.avail().filter(p => p !== c && !this.riskyBlock(p) && !(this.skipSet && this.skipSet.has(p))).sort((a, b) => cheb(a.x, a.y, bx, by) - cheb(b.x, b.y, bx, by));
     const bi = ballLoose() ? idx(bx, by) : -1;
-    if (off && this instanceof AI2 && AI2.f.pass && c && c.team === this.t && c.state === 'standing') {   // el corredor se adelanta para recibir una entrega o un pase corto
+    if (off && this instanceof AI2 && this.f.pass && c && c.team === this.t && c.state === 'standing') {   // el corredor se adelanta para recibir una entrega o un pase corto
       const pt = this.passTeam(), nR = pt ? 3 : 1;
       const fit = q => this.carrierFit(q) + (q.ma - c.ma) * 0.02 + (q.ag <= 3 || has(q, 'Catch') ? 0.1 : 0);
       const cand = ps.filter(q => !q.used && !q.started && q.loc === 'pitch' && q.state === 'standing' && !q.big && q.ma >= 5 && !q.noHands && !has(q, 'No Hands') && (pt ? (q.ag <= 3 || has(q, 'Catch')) : fit(q) > this.carrierFit(c) + 0.02)).sort((x, y) => fit(y) - fit(x)).slice(0, nR);
@@ -1977,7 +1978,7 @@ class AI2 extends AI {
     return e;
   }
   /* quedan pocos turnos y no voy ganando por mucho: hay que anotar ya */
-  urgent() { const left = TURNS - G.turn[this.t], lead = this.team.score - G.teams[1 - this.t].score; return AI2.f.rush && left <= 2 && lead <= 1; }
+  urgent() { const left = TURNS - G.turn[this.t], lead = this.team.score - G.teams[1 - this.t].score; return this.f.rush && left <= 2 && lead <= 1; }
   rk() { return (this.plan().risk - 50) / 50; }
   st() { return (this.plan().style - 50) / 50; }
   aggr() { return Math.max(-1, Math.min(1, this.rk() + 0.5 * this.st())); }
@@ -1998,10 +1999,10 @@ class AI2 extends AI {
     const ps = G.teams[this.t].players.filter(p => p.loc === 'pitch' && !p.big && !p.noHands && !has(p, 'No Hands'));
     return ps.some(p => (p.pa && p.pa <= 3) || has(p, 'Pass')) && ps.filter(p => p.ag <= 3 || has(p, 'Catch')).length >= 3;
   }
-  longOk() { return !!AI2.f.pass && this.passTeam(); }
+  longOk() { return !!this.f.pass && this.passTeam(); }
   async tryPassAdvance() {
     const c = G.ball.carrier;
-    if (!AI2.f.pass || !c || c.team !== this.t || c.state !== 'standing' || has(c, 'My Ball') || c.used) return false;
+    if (!this.f.pass || !c || c.team !== this.t || c.state !== 'standing' || has(c, 'My Ball') || c.used) return false;
     const gx = goalX(this.t), urg = this.urgent(), pt = this.passTeam();
     const eff = (p, mk) => p.ma * (mk ? 0.5 : 1) - (p.big ? 0.5 : 0);
     const dc = Math.abs(gx - c.x) - eff(c, markers(c).length > 0);
@@ -2014,10 +2015,10 @@ class AI2 extends AI {
       else { if (G.passUsed || c.noPA || band < 0 || band > (urg ? 2 : 1)) continue; p1 = clampP((7 - (c.pa + band + markers(c).length)) / 6); if (has(c, 'Pass')) p1 = 1 - (1 - p1) * (1 - p1); }
       let pc = clampP((7 - (t.ag + markers(t).length)) / 6); if (has(t, 'Catch')) pc = 1 - (1 - pc) * (1 - pc);
       let ps = p1 * pc; if (this.team.rr > 0 && !G.rrUsed) ps = ps + (1 - ps) * ps;   // con segunda oportunidad (relanzamiento)
-      if (ps < (urg ? 0.45 : 0.6 - 0.1 * this.aggr() + (pt ? -0.1 : 0.1))) continue;
+      if (ps < (urg ? 0.45 : this.f.passP - 0.1 * this.aggr() + (pt ? -0.1 : 0.1))) continue;
       const dt = Math.abs(gx - t.x) - eff(t, markers(t).length > 0);
       const gain = dc - dt;
-      const sc = gain - (1 - ps) * AI2.f.pcost - this.exposure(t.x, t.y, t) * 0.2 + (has(t, 'Sure Hands') ? 0.8 : 0);
+      const sc = gain - (1 - ps) * this.f.pcost - this.exposure(t.x, t.y, t) * 0.2 + (has(t, 'Sure Hands') ? 0.8 : 0);
       if (sc > bs) { bs = sc; best = { t, hand: adj && !G.handUsed }; }
     }
     if (!best) return false;
@@ -2030,25 +2031,25 @@ class AI2 extends AI {
     return true;
   }
   carrierFit(p) {
-    if (!AI2.f.runner) return 0;
+    if (!this.f.runner) return 0;
     return 0.04 * (p.ma - 5) + (has(p, 'Sure Hands') ? 0.05 : 0) + (p.ag <= 3 ? 0.03 : p.ag >= 5 ? -0.03 : 0) + (p.big ? -0.1 : 0) + (has(p, 'Dodge') ? 0.02 : 0) + (p.st >= 4 && p.ma <= 4 ? -0.03 : 0);
   }
   /* rival que puede llegar al portador este turno y pegar fuerte (F4+, Mighty Blow): bloquearlo vale más que rodear al portador */
   carrierThreat(e) {
     const c = G.ball.carrier;
-    if (!AI2.f.thr || !c || c.team !== this.t || e.state !== 'standing' || !hasTZ(e) || G.turn[this.t] >= TURNS) return 0;
+    if (!this.f.thr || !c || c.team !== this.t || e.state !== 'standing' || !hasTZ(e) || G.turn[this.t] >= TURNS) return 0;
     if (cheb(e.x, e.y, c.x, c.y) > e.ma + 2) return 0;
     return (e.st >= 4 ? 40 : e.st === 3 ? 12 : 3) + (has(e, 'Mighty Blow') ? 8 : 0) + (has(e, 'Tackle') ? 3 : 0) + (has(e, 'Frenzy') ? 4 : 0);
   }
   coverSet() {
     const c = G.ball.carrier;
-    if (AI2.f.thr && c && c.team === this.t && this.foes().some(e => this.carrierThreat(e) >= 40)) {   // hay un F4+ cerca: casi todos quedan libres para ir a por él
+    if (this.f.thr && c && c.team === this.t && this.foes().some(e => this.carrierThreat(e) >= 40)) {   // hay un F4+ cerca: casi todos quedan libres para ir a por él
       if (c.state !== 'standing' || G.turn[this.t] >= TURNS) return null;
       return new Set(this.avail().filter(p => p !== c && p.state === 'standing').sort((a, b) => cheb(a.x, a.y, c.x, c.y) - cheb(b.x, b.y, c.x, c.y)).slice(0, 1));
     }
     return super.coverSet();
   }
-  oneDieOk(p, e) { return this.bashing ? true : AI2.f.thr && this.carrierThreat(e) >= 40 && has(p, 'Block') ? true : this.rk() < -0.5 ? has(p, 'Block') : super.oneDieOk(p, e); }
+  oneDieOk(p, e) { return this.bashing ? true : this.f.thr && this.carrierThreat(e) >= 40 && has(p, 'Block') ? true : this.rk() < -0.5 ? has(p, 'Block') : super.oneDieOk(p, e); }
   advThr() { const r = this.rk(); return r < -0.5 ? 0.999 : r > 0.5 ? 0.8 : 0.95; }
   passMin(last) {
     if (last) return 0.05;
@@ -2089,7 +2090,7 @@ class AI2 extends AI {
     }
     return r;
   }
-  async chooseKick() { const f = AI2.f; if (!f.kick) return super.chooseKick(); const y = (G.turn[0] + G.turn[1]) % 2 ? 3 : 11; return this.t === 0 ? [f.kick, y] : [W - 1 - f.kick, y]; }
+  async chooseKick() { const f = this.f; if (!f.kick) return super.chooseKick(); const y = (G.turn[0] + G.turn[1]) % 2 ? 3 : 11; return this.t === 0 ? [f.kick, y] : [W - 1 - f.kick, y]; }
   /* amenaza sobre una casilla para el portador */
   exposure(x, y, me) {
     let s = 0;
@@ -2129,9 +2130,9 @@ class AI2 extends AI {
     return { ev: tot / cnt, pBad: bad / cnt };
   }
   async doBlocks(minDice) {
-    if (!AI2.f.blk) return super.doBlocks(minDice);
+    if (!this.f.blk) return super.doBlocks(minDice);
     for (;;) {
-      let best = null, bs = AI2.f.blk === 2 ? 0.6 : 1.5;
+      let best = null, bs = this.f.blk === 2 ? 0.6 : this.f.blkMin;
       for (const p of this.avail()) {
         if (p.state !== 'standing' || G.ball.carrier === p) continue;
         for (const e of this.foes()) {
@@ -2139,7 +2140,7 @@ class AI2 extends AI {
           const info = blockDice(p, e); if (!info.attChooses) continue;
           if (info.n < minDice && !(has(p, 'Block') || G.ball.carrier === e)) continue;
           const { ev, pBad } = this.evalDice(p, e, info.n, true);
-          if (pBad > (G.ball.carrier === e ? 0.35 : 0.2)) continue;
+          if (pBad > (G.ball.carrier === e ? this.f.pBadC : this.f.pBadO)) continue;
           const s = ev + (G.ball.carrier === e ? 6 : 0) + (has(p, 'Mighty Blow') ? 1 : 0) - markers(p).length * 0.3;
           if (s > bs) { bs = s; best = [p, e]; }
         }
@@ -2159,7 +2160,7 @@ class AI2 extends AI {
     const goalSide = this.t === 0 ? bx > 12 : bx < 13;
     const mid = c ? by : 7;
     t.push([bx + g, by]);
-    if (AI2.f.press && c) { t.push([bx, by - 1]); t.push([bx, by + 1]); }   // presión: dos marcadores más pegados al portador rival
+    if (this.f.press >= 0.5 && c) { t.push([bx, by - 1]); t.push([bx, by + 1]); }   // presión: dos marcadores más pegados al portador rival
     for (const k of [0, -2, 2, -4, 4, -6, 6]) { t.push([x1, mid + k]); }
     for (const k of [0, -2, 2, -4, 4]) t.push([x2 + g * 0, mid + k + 1]);
     return t.filter(([x, y]) => y >= 0 && y < H);
@@ -2178,8 +2179,8 @@ class AI2 extends AI {
   }
   async doFoul() {
     const fp = this.plan().fouls;
-    if (!AI2.f.foul || G.foulUsed || fp === 'never') return;
-    let best = null, bs = this.bashing ? 0.2 : fp === 'always' ? 0.3 : (AI2.f.foulMin || 0.55);
+    if (!this.f.foul || G.foulUsed || fp === 'never') return;
+    let best = null, bs = this.bashing ? 0.2 : fp === 'always' ? 0.3 : (this.f.foulMin || 0.55);
     const targets = this.foes().filter(e => e.state !== 'standing');
     if (!targets.length) return;
     for (const p of this.avail()) {
@@ -2204,13 +2205,13 @@ class AI2 extends AI {
     finish(p);
   }
   async advance(c) {
-    if (!AI2.f.adv) return super.advance(c);
+    if (!this.f.adv) return super.advance(c);
     const mv = computeMoves(c), gx = goalX(this.t), reach = this.reachMap(c), last = G.turn[this.t] >= TURNS;
-    const strong = AI2.f.adv === 2, hold = this.holdScore(c);
-    const marked = AI2.f.dodge && markersAt(c.x, c.y, this.t).length > 0;   // portador marcado: vale la pena un dodge
-    const urg = this.urgent(), thr = marked ? Math.max(0.4, 0.62 - 0.12 * this.aggr()) : urg ? (TURNS - G.turn[this.t] <= 1 ? 0.6 : 0.8) : 0.95;
-    if (AI2.f.wait && !urg && !last && G.turn[this.t] < AI2.f.wait && this.support(c.x, c.y, reach, c) >= 3 && !this.foes().some(e => e.state === 'standing' && cheb(e.x, e.y, c.x, c.y) <= 1)) return;   // paciencia: con el cage armado y sin nadie encima, no se mueve al principio de la mitad
-    const val = (x, y, prob) => { const sp = this.support(x, y, reach, c); return -Math.abs(gx - x) * (last ? 3 : urg ? 2.4 : AI2.f.advW) - this.exposure(x, y, c) * (urg ? 0.5 : AI2.f.expW) + (strong && !last ? 2.6 * sp - (sp < 2 ? 5 : 0) : 1.3 * sp) - (prob < 0.999 ? 3 + (marked ? (1 - prob) * 10 : 0) : 0) + (x === gx ? 100 : 0) - (hold && Math.abs(gx - x) < 3 ? 1000 : 0); };
+    const strong = this.f.adv === 2, hold = this.holdScore(c);
+    const marked = this.f.dodge && markersAt(c.x, c.y, this.t).length > 0;   // portador marcado: vale la pena un dodge
+    const urg = this.urgent(), thr = marked ? Math.max(0.4, this.f.thrMarked - 0.12 * this.aggr()) : urg ? (TURNS - G.turn[this.t] <= 1 ? 0.6 : 0.8) : this.f.thrFree;
+    if (this.f.wait && !urg && !last && G.turn[this.t] < this.f.wait && this.support(c.x, c.y, reach, c) >= 3 && !this.foes().some(e => e.state === 'standing' && cheb(e.x, e.y, c.x, c.y) <= 1)) return;   // paciencia: con el cage armado y sin nadie encima, no se mueve al principio de la mitad
+    const val = (x, y, prob) => { const sp = this.support(x, y, reach, c); return -Math.abs(gx - x) * (last ? 3 : urg ? 2.4 : this.f.advW) - this.exposure(x, y, c) * (urg ? 0.5 : this.f.expW) + (strong && !last ? 2.6 * sp - (sp < 2 ? 5 : 0) : 1.3 * sp) - (prob < 0.999 ? 3 + (marked ? (1 - prob) * 10 : 0) : 0) + (x === gx ? 100 : 0) - (hold && Math.abs(gx - x) < 3 ? 1000 : 0); };
     let best = null, bs = val(c.x, c.y, 1);
     for (const n of mv.values()) {
       if (n.prob < thr) continue;
@@ -2225,7 +2226,7 @@ class AI2 extends AI {
     if (await this.tryScore(0.99)) return;
     await this.tryTTM(); if (this.over()) return;
     if (this.lastStand()) { await this.finalBash(); return; }
-    if (AI2.f.free && (AI2.f.free === 1 || (!off && !ballLoose()))) {   // primero lo que no usa dados: reposicionar a quienes no pelearán este turno
+    if (this.f.free && (this.f.free === 1 || (!off && !ballLoose()))) {   // primero lo que no usa dados: reposicionar a quienes no pelearán este turno
       const keep = new Set(this.avail().filter(p => this.foes().some(e => e.state === 'standing' && cheb(p.x, p.y, e.x, e.y) === 1)));
       const bl = await this.doBlitz(true); if (bl) keep.add(bl);
       if (off) for (const p of this.avail()) if (cheb(p.x, p.y, c.x, c.y) <= 3) keep.add(p);   // la escolta del portador no se mueve antes de tiempo
@@ -2256,7 +2257,7 @@ class AI2 extends AI {
     await this.doBlocks(1);
   }
 }
-AI2.v = 0; AI2.f = { pcost: 2.5, press: 1, wait: 0, advW: 1.15, expW: 1, foul: 1, foulMin: 0.45, def: 1, kick: 0, adv: 1, dodge: 1, free: 2, rush: 1, thr: 1, runner: 1, pass: 1 };
+AI2.v = 0; AI2.f = { blkMin: 1.5, pBadC: 0.35, pBadO: 0.2, passP: 0.6, thrFree: 0.95, thrMarked: 0.62, pcost: 2.5, press: 1, wait: 0, advW: 1.15, expW: 1, foul: 1, foulMin: 0.45, def: 1, kick: 0, adv: 1, dodge: 1, free: 2, rush: 1, thr: 1, runner: 1, pass: 1 };
 class AI2b extends AI2 {}
 
 /* =====================================================================
