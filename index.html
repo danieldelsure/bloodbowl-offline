@@ -2177,20 +2177,22 @@ class AI2 extends AI {
     for (;;) {
       let best = null, bs = this.f.blk === 2 ? 0.6 : this.f.blkMin;
       for (const p of this.avail()) {
-        if (p.state !== 'standing' || G.ball.carrier === p) continue;
+        const isC = G.ball.carrier === p;
+        if (p.state !== 'standing' || (isC && !(this.f.cblk && markers(p).length > 0))) continue;   // el portador marcado puede bloquear si es seguro (mejor que esquivar con el balón)
         for (const e of this.foes()) {
           if (e.state !== 'standing' || cheb(p.x, p.y, e.x, e.y) !== 1) continue;
           const info = blockDice(p, e); if (!info.attChooses) continue;
+          if (isC && info.n < 2) continue;
           if (info.n < minDice && !(has(p, 'Block') || G.ball.carrier === e)) continue;
           const { ev, pBad } = this.evalDice(p, e, info.n, true);
-          if (pBad > (G.ball.carrier === e ? this.f.pBadC : this.f.pBadO)) continue;
+          if (isC ? pBad > this.f.pBadK : pBad > (G.ball.carrier === e ? this.f.pBadC : this.f.pBadO)) continue;
           const s = ev + (G.ball.carrier === e ? 6 : 0) + (has(p, 'Mighty Blow') ? 1 : 0) - markers(p).length * 0.3;
           if (s > bs) { bs = s; best = [p, e]; }
         }
       }
       if (!best) return;
       const [p, e] = best;
-      if (await begin(p, 'block')) { await block(p, e, true); await this.pause(); }
+      if (await begin(p, 'block')) { await block(p, e, G.ball.carrier !== p); await this.pause(); }
       finish(p);
       if (this.over()) return;
     }
@@ -2247,6 +2249,94 @@ class AI2 extends AI {
     }
     finish(p);
   }
+  /* probabilidad de tumbar al rival con n dados (elige el atacante) */
+  pDown(att, def, n) {
+    const q = (1 + (!has(def, 'Dodge') || has(att, 'Tackle') ? 1 : 0) + (has(att, 'Block') && !has(def, 'Block') ? 1 : 0)) / 6;
+    return 1 - Math.pow(1 - q, n);
+  }
+  /* el portador está marcado y anotaría si quedara libre: un compañero tumba al marcador (bloqueo o blitz), o el propio portador hace blitz, sigue y corre */
+  async freeCarrier() {
+    if (!this.f.freeC) return false;
+    const gx = goalX(this.t), maxMk = this.f.freeC2 ? 2 : 1;
+    for (let it = 0; it < (this.f.freeC2 ? 3 : 2); it++) {
+      const c = G.ball.carrier;
+      if (!c || c.team !== this.t || c.state !== 'standing' || c.used || c.started || this.holdScore(c)) return false;
+      const mk = markers(c); if (!mk.length || mk.length > maxMk || Math.abs(gx - c.x) > c.ma + 2) return false;
+      const sn0 = this.scoreNode(c); if (sn0 && sn0.prob >= 0.7) return false;
+      const sts = mk.map(m => m.state); mk.forEach(m => { m.state = 'prone'; });
+      const sn1 = this.scoreNode(c); mk.forEach((m, i) => { m.state = sts[i]; });
+      const pAfter = sn1 ? sn1.prob : 0, need = mk.length > 1 ? 0.6 : 1;   // con dos marcadores hace falta además un segundo golpe
+      let best = null, bs = this.f.freeMin;
+      for (const e of mk) {
+        for (const p of this.avail()) {
+          if (p.rooted || p.state !== 'standing') continue;
+          const isC = p === c;
+          if (isC && (!this.f.freeC2 || G.blitzUsed)) continue;
+          const adj = cheb(p.x, p.y, e.x, e.y) === 1;
+          const tryAt = (x, y, node, prob) => {
+            const ox = p.x, oy = p.y; p.x = x; p.y = y;
+            const info = blockDice(p, e, p.st + (has(p, 'Horns') && node ? 1 : 0)); p.x = ox; p.y = oy;
+            if (!info.attChooses || info.n < 2) return;
+            const { pBad } = this.evalDice(p, e, info.n, true);
+            if (pBad > (isC ? this.f.pBadK : this.f.pBadO)) return;
+            let pa = pAfter * need;
+            if (isC) {   // el portador bloquea (1 de movimiento), sigue a la casilla del rival y corre con lo que le queda
+              const sx = c.x, sy = c.y, st = e.state; c.x = e.x; c.y = e.y; e.state = 'prone';
+              const mv = computeMoves(c, { ma: c.ma - 1, rush: 2 }); c.x = sx; c.y = sy; e.state = st;
+              pa = 0; for (const n of mv.values()) if (n.x === gx && n.prob > pa) pa = n.prob;
+            }
+            const sc = prob * this.pDown(p, e, info.n) * pa;
+            if (sc > bs) { bs = sc; best = { p, e, node, isC }; }
+          };
+          if (adj) tryAt(p.x, p.y, null, 1);
+          else if (!isC && !G.blitzUsed) {
+            const mv = computeMoves(p, { reserve: 1, action: 'blitz' });
+            for (const [dx, dy] of DIRS) { const x = e.x + dx, y = e.y + dy; if (!inPitch(x, y)) continue; const node = mv.get(idx(x, y)); if (node && node.prob >= 0.6) tryAt(x, y, node, node.prob); }
+          }
+        }
+      }
+      if (!best) return false;
+      const { p, e, node, isC } = best;
+      (globalThis.__FC = globalThis.__FC || { a: 0, s: 0, bl: 0, c: 0 }).a++; if (node) __FC.bl++; if (isC) __FC.c++;
+      if (await begin(p, node || isC ? 'blitz' : 'block')) {
+        const r = node ? await moveAlong(p, pathOf(node)) : 'ok';
+        if (r === 'ok' && e.loc === 'pitch' && e.state === 'standing' && p.state === 'standing' && cheb(p.x, p.y, e.x, e.y) === 1) { if (node || isC) await blitzBlock(p, e, true, false); else await block(p, e, true); }
+        if (isC && !this.over() && p.state === 'standing' && !G.turnover) { const n = this.scoreNode(p); if (n && n.prob >= 0.3) await moveAlong(p, pathOf(n)); }
+        await this.pause();
+      }
+      finish(p);
+      if (this.over()) return true;
+      if (!isC && await this.tryScore(0.5)) { __FC.s++; return true; }
+      if (isC) return false;
+    }
+    return false;
+  }
+  /* al cerrar el turno, los jugadores que quedan libres tapan las casillas alrededor del portador por donde llegarían los rivales */
+  async guardCarrier() {
+    const c = G.ball.carrier;
+    if (!this.f.guard || !c || c.team !== this.t || c.state !== 'standing' || G.td != null || G.turnover) return;
+    const th = this.foes().filter(e => e.state === 'standing' && hasTZ(e) && cheb(e.x, e.y, c.x, c.y) <= e.ma + 1);
+    if (!th.length) return;
+    for (let k = 0; k < 4; k++) {
+      const sq = DIRS.map(([dx, dy]) => [c.x + dx, c.y + dy]).filter(([x, y]) => inPitch(x, y) && !playerAt(x, y));
+      if (!sq.length) return;
+      sq.sort((a, b) => Math.min(...th.map(e => cheb(a[0], a[1], e.x, e.y))) - Math.min(...th.map(e => cheb(b[0], b[1], e.x, e.y))));
+      let best = null, bs = 1e9;
+      for (const p of this.avail()) {
+        if (p === c || p.state !== 'standing' || p.rooted) continue;
+        if (markers(p).length > 0 || cheb(p.x, p.y, c.x, c.y) <= 1) continue;   // el que marca a un rival no se mueve; el que ya está pegado se queda
+        const mv = computeMoves(p);
+        for (let i = 0; i < Math.min(3, sq.length); i++) {
+          const n = mv.get(idx(sq[i][0], sq[i][1])); if (!n || n.prob < 0.999) continue;
+          const sc = i * 4 + n.steps * 0.2; if (sc < bs) { bs = sc; best = { p, n }; }
+        }
+      }
+      if (!best) return;
+      if (await begin(best.p, 'move')) { await moveAlong(best.p, pathOf(best.n)); await sleep(150); }
+      finish(best.p); if (this.over()) return;
+    }
+  }
+  async position() { await super.position(); await this.guardCarrier(); }
   async advance(c) {
     if (!this.f.adv) return super.advance(c);
     const mv = computeMoves(c), gx = goalX(this.t), reach = this.reachMap(c), last = G.turn[this.t] >= TURNS;
@@ -2267,6 +2357,7 @@ class AI2 extends AI {
     const c = G.ball.carrier, off = c && c.team === this.t;
     await this.pause();
     if (await this.tryScore(0.99)) return;
+    if (await this.freeCarrier()) return; if (this.over()) return;
     await this.tryTTM(); if (this.over()) return;
     if (this.lastStand()) { await this.finalBash(); return; }
     if (this.f.free && (this.f.free === 1 || (!off && !ballLoose()))) {   // primero lo que no usa dados: reposicionar a quienes no pelearán este turno
@@ -2300,7 +2391,7 @@ class AI2 extends AI {
     await this.doBlocks(1);
   }
 }
-AI2.v = 0; AI2.f = { blkMin: 1.10, pBadC: 0.31, pBadO: 0.14, passP: 0.53, thrFree: 0.97, thrMarked: 0.62, pcost: 2.38, press: 1, wait: 0.18, advW: 1.70, expW: 0.72, foul: 1, foulMin: 0.54, def: 1, kick: 0, adv: 1, dodge: 1, free: 2, rush: 1, thr: 1, runner: 1, pass: 1 };
+AI2.v = 0; AI2.f = { freeC: 1, freeC2: 1, guard: 0, freeMin: 0.3, cblk: 1, pBadK: 0.12, blkMin: 1.10, pBadC: 0.31, pBadO: 0.14, passP: 0.53, thrFree: 0.97, thrMarked: 0.62, pcost: 2.38, press: 1, wait: 0.18, advW: 1.70, expW: 0.72, foul: 1, foulMin: 0.54, def: 1, kick: 0, adv: 1, dodge: 1, free: 2, rush: 1, thr: 1, runner: 1, pass: 1 };
 class AI2b extends AI2 {}
 
 /* =====================================================================
