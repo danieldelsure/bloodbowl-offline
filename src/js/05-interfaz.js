@@ -936,7 +936,7 @@ if (!HEADLESS) (function () {
       if (!st.pair || !st.pair.length) { st.pair = tPairings(st); save(st); }
       const mine = st.pair.find(p => p[0] === st.me || p[1] === st.me), opp = mine[0] === st.me ? mine[1] : mine[0], o = tn(opp);
       const act = rs ? 'play' : await ask(`<h2>${TDC.name}: ronda ${st.round} de ${TDC.rounds}</h2>
-        <p>Juegas con <b>${tn(st.me).name}</b> (${tn(st.me).race})${st.mgr ? ' en modo manager' : ''}. Tu rival: <b>${o.name}</b>, ${o.race}, de ${o.coach} (TV ${o.tv}).</p>
+        <div class="vsb"><div class="vt me" style="--tc:${tn(st.me).color || '#2f6fdb'}"><small>Tú${st.mgr ? ' (manager)' : ''}</small><b>${tn(st.me).name}</b><span>${tn(st.me).race}</span></div><div class="vsx">VS</div><div class="vt rv" style="--tc:${o.color || '#d52b1e'}"><small>Tu rival en la ronda ${st.round}</small><b>${o.name}</b><span>${o.race} · ${o.coach} · TV ${o.tv}</span></div></div>
         <h3 style="margin:10px 0 4px;font-size:14px">Cruces de la ronda</h3>${pairHtml(st.pair, st.me)}
         ${st.res.length ? '<h3 style="margin:12px 0 0;font-size:14px">Tabla</h3>' + standingsHtml(st) : ''}`,
         [{ label: 'Jugar mi partido', value: 'play', primary: true }, { label: 'Salir al menú (se guarda)', value: 'menu' }, { label: 'Abandonar torneo', value: 'drop' }], true);

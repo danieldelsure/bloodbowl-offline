@@ -305,3 +305,13 @@ body.mob #mtip.on{opacity:1}
 body.mob #mtip .who{font:900 13px var(--disp);letter-spacing:.06em;color:var(--tc);filter:brightness(1.5)}
 body.mob #mtip .tn{font:900 15px var(--disp);text-transform:uppercase}
 body.mob #mtip .sk{color:var(--dim);flex-basis:100%}
+
+.vsb{display:flex;align-items:stretch;gap:0;margin:2px 0 8px}
+.vsb .vt{flex:1;min-width:0;padding:8px 12px;background:var(--ink);color:var(--bone);border-left:8px solid var(--tc);display:flex;flex-direction:column;gap:1px}
+.vsb .vt.rv{border-left:0;border-right:8px solid var(--tc);text-align:right}
+.vsb small{font:700 11px var(--body);text-transform:uppercase;letter-spacing:.08em;color:var(--dim)}
+.vsb .rv small{color:#ff8a80}
+.vsb b{font:900 22px/1.05 var(--disp);text-transform:uppercase}
+.vsb span{font:600 12px var(--body);color:var(--dim)}
+.vsb .vsx{align-self:center;padding:0 8px;font:900 20px var(--disp);color:var(--ink)}
+body.mob .vsb b{font-size:18px} body.mob .vsb .vt{padding:5px 10px}
