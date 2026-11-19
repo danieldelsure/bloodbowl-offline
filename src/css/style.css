@@ -297,3 +297,11 @@
   body.mob #modalBox:not(.poster) #modalBtns{position:sticky;bottom:-14px;background:var(--bone);padding:8px 0 2px;margin-top:8px;z-index:3;border-top:2px solid var(--ink)}
   body.mob #modalBox label.lu-row{padding:1px 4px;font-size:12px;grid-template-columns:20px 34px 1.3fr 1.1fr 2fr;gap:6px}
   body.mob #modalBox label.lu-row canvas{width:34px;height:34px}
+
+body.mob #boardWrap{position:relative}
+#mtip{display:none}
+body.mob #mtip{display:flex;position:absolute;left:10px;bottom:8px;z-index:30;max-width:calc(100% - 232px);flex-wrap:wrap;align-items:center;gap:2px 8px;padding:5px 10px;background:#101216ee;border-left:6px solid var(--tc);color:var(--bone);font:600 12px/1.25 var(--body);pointer-events:none;opacity:0;transition:opacity .2s}
+body.mob #mtip.on{opacity:1}
+body.mob #mtip .who{font:900 13px var(--disp);letter-spacing:.06em;color:var(--tc);filter:brightness(1.5)}
+body.mob #mtip .tn{font:900 15px var(--disp);text-transform:uppercase}
+body.mob #mtip .sk{color:var(--dim);flex-basis:100%}

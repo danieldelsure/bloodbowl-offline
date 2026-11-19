@@ -301,7 +301,17 @@ if (!HEADLESS) (function () {
       <div class="st">${st}${G.ball.carrier === p ? ' · Lleva el balón' : ''}</div>${mv}${extra ? `<div class="ex">${extra}</div>` : ''}</div>`;
     spriteTo(el.querySelector('canvas'), p, 96);
   }
-  function card(p, extra) { renderCard($('cardR'), p, extra, 'Pasa el cursor sobre un jugador, en la cancha o en las reservas.'); }
+  /* celular: cartel flotante con el equipo y la ficha resumida del jugador tocado (el panel Rival queda escondido en un cajón) */
+  let tipT = 0;
+  function mobTip(p) {
+    if (!document.body.classList.contains('mob') || !p) return;
+    let el = $('mtip'); if (!el) { el = document.createElement('div'); el.id = 'mtip'; $('boardWrap').appendChild(el); }
+    const t = G.teams[p.team], mine = p.team === HT;
+    el.style.setProperty('--tc', t.color || (mine ? 'var(--blue)' : 'var(--acc)'));
+    el.innerHTML = `<b class="who">${mine ? 'TU EQUIPO' : 'RIVAL'}</b><b class="tn">${t.name}</b><span class="pl">${nm(p)}${p.pos !== p.name ? ' · ' + p.pos : ''}</span><span class="ss">MA${p.ma} ST${p.st} AG${p.ag}+ AV${p.av}+</span><span class="sk">${p.skList.join(', ')}</span>`;
+    el.classList.add('on'); clearTimeout(tipT); tipT = setTimeout(() => el.classList.remove('on'), 5000);
+  }
+  function card(p, extra) { renderCard($('cardR'), p, extra, 'Pasa el cursor sobre un jugador, en la cancha o en las reservas.'); mobTip(p); }
   function showSel(extra) { renderCard($('cardL'), ui.sel, extra, 'Haz clic en uno de tus jugadores.'); }
   let dugSig = ['', ''];
   function dugouts() {
