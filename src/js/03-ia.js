@@ -414,10 +414,12 @@ class AI {
 
 /* plan por defecto según raza, solo donde la simulación mostró mejora sostenida (Nurgle: banda, +6 puntos de victoria en 300 partidos) */
 const RACE_PLAN = { Nurgle: 'banda' };
+// plan por defecto de la IA2 (evolucionado: algo más ofensivo y con riesgo medio-bajo)
+const AI_PLAN = Object.assign({}, PRESETS.equil, { risk: 46, style: 56 });
 class AI2 extends AI {
   /* plan efectivo del equipo (con el cambio automático según el marcador) */
   plan() {
-    const t = this.team, p = t.plan || PRESETS[RACE_PLAN[t.race]] || PRESETS.equil;
+    const t = this.team, p = t.plan || PRESETS[RACE_PLAN[t.race]] || AI_PLAN;
     if (!p.auto) return p;
     const lead = t.score - G.teams[1 - this.t].score, e = Object.assign({}, p);
     if (lead > 0) { e.style = Math.max(0, p.style - 30); e.scoring = 'late'; e.risk = Math.max(0, p.risk - 25); }
@@ -704,6 +706,6 @@ class AI2 extends AI {
     await this.doBlocks(1);
   }
 }
-AI2.v = 0; AI2.f = { blkMin: 1.5, pBadC: 0.35, pBadO: 0.2, passP: 0.6, thrFree: 0.95, thrMarked: 0.62, pcost: 2.5, press: 1, wait: 0, advW: 1.15, expW: 1, foul: 1, foulMin: 0.45, def: 1, kick: 0, adv: 1, dodge: 1, free: 2, rush: 1, thr: 1, runner: 1, pass: 1 };
+AI2.v = 0; AI2.f = { blkMin: 1.10, pBadC: 0.31, pBadO: 0.14, passP: 0.53, thrFree: 0.97, thrMarked: 0.62, pcost: 2.38, press: 1, wait: 0.18, advW: 1.70, expW: 0.72, foul: 1, foulMin: 0.54, def: 1, kick: 0, adv: 1, dodge: 1, free: 2, rush: 1, thr: 1, runner: 1, pass: 1 };
 class AI2b extends AI2 {}
 
