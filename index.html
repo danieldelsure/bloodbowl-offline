@@ -3993,6 +3993,20 @@ if (!HEADLESS) (function () {
       [{ label: 'Volver al menú', value: 1, primary: true }], true);
     save(null);
   }
+  /* celular: el primer toque en cualquier parte pasa a pantalla completa (el navegador exige un gesto del usuario) y fija la orientación horizontal */
+  (function autoFullscreen() {
+    const el = document.documentElement, rq = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!rq || !window.matchMedia || !matchMedia('(pointer:coarse)').matches || Math.min(screen.width, screen.height) > 820) return;
+    const go = () => {
+      removeEventListener('pointerup', go, true);
+      if (document.fullscreenElement || document.webkitFullscreenElement) return;
+      try {
+        const r = rq.call(el);
+        if (r && r.then) r.then(() => { try { screen.orientation.lock('landscape').catch(() => {}); } catch (e) { /* sin soporte */ } }).catch(() => {});
+      } catch (e) { /* el navegador no lo permite */ }
+    };
+    addEventListener('pointerup', go, true);
+  })();
     /* =====================================================================
      Modo "Aprender a jugar": lecciones guiadas sobre el mismo motor del juego.
      Cada lección arma una situación, muestra un cartel con pasos y objetivos,
