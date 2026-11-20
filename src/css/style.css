@@ -455,3 +455,8 @@ body.mob #modalBox.poster #modalBtns button.primary{font-size:13px}
 body.mob .pst-k{font-size:24px}
 body.mob .pst-side{padding:10px 16px 6px}
 body.mob .pst-side p{display:none}
+
+#cartel.tip{max-height:230px}
+#cartel.tip #ctRetry,#cartel.tip #ctSkip,#cartel.tip #ctExit,#cartel.tip #ctHide{display:none}
+#cartel.tip #ctStep:empty{display:none}
+#cartel .bd{display:inline-block;width:12px;height:12px;vertical-align:-1px;border:1px solid #0006}

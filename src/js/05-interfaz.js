@@ -242,6 +242,7 @@ if (!HEADLESS) (function () {
     playTurn() {
       return new Promise(res => {
         ui.turnRes = res; ui.phase = 'turn'; select(null);
+        if (G.oneHalf && curMode === 'tutorial') tutTip();
         msg(turnMsg());
         refresh();
       });
@@ -326,6 +327,10 @@ if (!HEADLESS) (function () {
     ctx.fillStyle = G.teams[0].color + '40'; ctx.fillRect(0, 0, S, H * S);
     ctx.fillStyle = G.teams[1].color + '40'; ctx.fillRect((W - 1) * S, 0, S, H * S);
     if ((ui.phase === 'setup' || ui.phase === 'snap') && ui.limit) for (const p of ui.limit.open) if (p.loc === 'pitch') { ctx.fillStyle = ui.limit.moved.has(p) ? '#ffffff30' : '#f2b63250'; ctx.fillRect(p.x * S + 2, p.y * S + 2, S - 4, S - 4); }
+    if (ui.tutBands && ui.phase === 'turn' && ui.sel && ui.mode === 'pass' && G.ball.carrier === ui.sel) {
+      const BC = ['#3fbf5f66', '#ffd23f66', '#ff9a2f70', '#e04a3a70'];
+      for (let yy = 0; yy < H; yy++) for (let xx = 0; xx < W; xx++) { const bd = rangeBand(ui.sel.x, ui.sel.y, xx, yy); if (bd >= 0 && !(xx === ui.sel.x && yy === ui.sel.y)) { ctx.fillStyle = BC[bd]; ctx.fillRect(xx * S + 1, yy * S + 1, S - 2, S - 2); } }
+    }
     if (ui.phase === 'turn' && ui.sel) {
       for (const n of ui.moves.values()) {
         ctx.fillStyle = n.prob >= 0.999 ? '#7dffa055' : n.prob >= 0.6 ? '#ffe45c70' : '#ff4d3d85';
@@ -503,6 +508,7 @@ if (!HEADLESS) (function () {
     return `<b>${nm(s)}.</b> ${s.rooted ? 'Está enraizado: no puede moverse, pero sí bloquear' : 'Clic en una casilla marcada para mover'}${!s.started && (s.state === 'standing' || has(s, 'Jump Up')) ? ', o en un rival adyacente para bloquear' : ''}.`;
   }
   function endHumanTurn() {
+    if (G.oneHalf && curMode === 'tutorial') tutTipHide();
     ui.phase = 'idle'; ui.sel = null; ui.moves = new Map(); refresh(); card(null);
     msg('Juega la IA…');
     const r = ui.turnRes; ui.turnRes = null; if (r) r();
