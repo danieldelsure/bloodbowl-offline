@@ -962,7 +962,7 @@ async function kickoffEvent(kicker, land) {
     const delta = G.turn[kicker] + 1 >= 6 ? -1 : 1;
     head(`Tiempo muerto. Los marcadores de turno ${delta < 0 ? 'retroceden' : 'avanzan'} una casilla`);
     G.turn = G.turn.map(v => Math.max(0, Math.min(TURNS, v + delta)));
-  } else if (ev === 4) { const n = d3() + 3; head(`Defensa sólida. ${K.name} puede recolocar hasta ${n} jugadores libres`); await K.ctrl.solidDefence(n); }
+  } else if (ev === 4) { const n = d3() + 3; head(`Defensa sólida. ${K.name} puede recolocar hasta ${n} jugadores libres`); await K.ctrl.solidDefence(n, land); }
   else if (ev === 5) {
     head('Patada alta');
     const [lx, ly] = land;

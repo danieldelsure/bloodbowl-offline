@@ -56,7 +56,29 @@ class AI {
     } finally { this.bashing = false; }
   }
   async confirm(kind, text, p) { if (kind === 'apoKO') return !!(p && (p.big || p.skills.size >= 2)); return true; }
-  async solidDefence() {}
+  /* Defensa sólida: los libres más lejos del punto de caída se reubican (en su mitad, fuera de zonas rivales) para cerrar ese flanco */
+  async solidDefence(n, land) {
+    const t = this.t, tgt = land && land.length ? land : [t === 0 ? 6 : 19, 7];
+    const los = t === 0 ? 12 : 13;
+    const dist = q => cheb(q.x, q.y, tgt[0], tgt[1]);
+    let moved = 0;
+    for (const q of [...openPlayers(t)].sort((a, b) => dist(b) - dist(a))) {
+      if (moved >= n) break;
+      const d0 = dist(q); let best = null;
+      for (let x = 0; x < 26; x++) for (let y = 0; y < 15; y++) {
+        if (!inHalf(x, t) || playerAt(x, y)) continue;
+        if (Math.abs(x - los) > 5) continue;
+        const d = cheb(x, y, tgt[0], tgt[1]); if (d > d0 - 3) continue;
+        const ox = q.x, oy = q.y; q.x = x; q.y = y; const tz = markers(q).length; q.x = ox; q.y = oy;
+        if (tz) continue;
+        const sc = d * 3 + Math.abs(x - los) * 2;
+        if (!best || sc < best.sc) best = { x, y, sc };
+      }
+      if (!best) continue;
+      q.x = best.x; q.y = best.y; moved++;
+      log(`${nm(q)} se recoloca`, 't' + t); render(); await sleep(260);
+    }
+  }
   /* Saque rápido: los libres más cercanos al punto de caída avanzan una casilla hacia él (sin salir de su mitad ni caer en zonas de placaje rivales) */
   async quickSnap(n, land) {
     const open = openPlayers(this.t); if (!open.length) return;

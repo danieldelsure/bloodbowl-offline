@@ -444,7 +444,7 @@ if (!HEADLESS) (function () {
   /* ----- turno humano ----- */
   function select(p) {
     if (ui.sel && ui.sel !== p && ui.sel.started) finish(ui.sel);
-    ui.sel = p; ui.mode = 'move'; refresh(); if (!p) card(null);
+    clearBlitzMark(); ui.sel = p; ui.mode = 'move'; refresh(); if (!p) card(null);
   }
   async function guard(fn) {
     if (ui.busy) return; ui.busy = true; buttons();
@@ -456,7 +456,7 @@ if (!HEADLESS) (function () {
   }
   function hint() {
     const s = ui.sel;
-    if (ui.mode === 'blitz') return '<b>Blitz.</b> Haz clic en un rival de pie: tu jugador se mueve hasta él y bloquea. También puedes moverlo antes casilla por casilla.';
+    if (ui.mode === 'blitz') return '<b>Blitz.</b> Haz clic en el rival al que quieres golpear para marcarlo; después eliges por dónde llegar. También puedes moverlo antes casilla por casilla.';
     if (ui.mode === 'pass') return '<b>Pase.</b> Mueve al lanzador si quieres y luego haz clic en el compañero que recibe.';
     if (ui.mode === 'handoff') return '<b>Entrega en mano.</b> Mueve al portador y luego haz clic en un compañero adyacente.';
     if (ui.mode === 'foul') return '<b>Falta.</b> Mueve al jugador y luego haz clic en un rival caído adyacente.';
@@ -487,6 +487,43 @@ if (!HEADLESS) (function () {
     if (canStab) btn.push({ label: 'Apuñalar', value: 'stab' });
     btn.push({ label: 'Cancelar', value: null });
     return ask(`<h2>Bloquear a ${nm(e)}</h2><p>${nm(s)} (fuerza ${info.a}) contra ${nm(e)} (fuerza ${info.b}).</p><p><b>${info.n} dado${info.n > 1 ? 's' : ''}</b>, ${who}.</p>${notes}`, btn);
+  }
+  /* Blitz en dos pasos: primero se marca al rival, después se elige por dónde llegar */
+  function clearBlitzMark() { ui.blitzTarget = null; if (ui.hl && ui.hl.blitz) ui.hl = null; }
+  function markBlitz(s, q) {
+    const mv = computeMoves(s, { reserve: 1, action: 'blitz' }), sq = [];
+    for (const [dx, dy] of DIRS) { const n = mv.get(idx(q.x + dx, q.y + dy)); if (n) sq.push([q.x + dx, q.y + dy]); }
+    if (!sq.length) { clearBlitzMark(); msg('Ese rival está fuera del alcance del blitz.'); return; }
+    ui.blitzTarget = q; ui.hl = { squares: sq, color: '#ffffff66', mark: [q.x, q.y], blitz: true }; draw();
+    msg(`<b>Blitz a ${nm(q)} marcado.</b> Elige una casilla blanca, desde donde lo golpearás: tu jugador va hasta ahí y bloquea. También puedes avanzar casilla por casilla. Clic de nuevo en ${nm(q)} para ir por la ruta más segura.`);
+  }
+  async function runBlitz(s, q, adj, chosen) {
+    let best = chosen;
+    if (!adj || s.state === 'prone') {
+      const mv = computeMoves(s, { reserve: 1, action: 'blitz' });
+      if (!best) {
+        if (adj && s.state === 'prone' && (s.ma >= 4 || has(s, 'Jump Up'))) best = { prob: 1, rolls: 0, prev: null };
+        else {
+          const bq = ballLoose() ? idx(G.ball.x, G.ball.y) : -1;
+          const better = (a, b) => { const ba = a.i === bq ? 1 : 0, bb = b.i === bq ? 1 : 0; if (ba !== bb) return ba < bb; if (Math.abs(a.prob - b.prob) > 1e-9) return a.prob > b.prob; if (a.rolls !== b.rolls) return a.rolls < b.rolls; return a.steps < b.steps; };
+          for (const [dx, dy] of DIRS) { const n = mv.get(idx(q.x + dx, q.y + dy)); if (n && (!best || better(n, best))) best = n; }
+        }
+      }
+      if (!best) { msg('Ese rival está fuera del alcance del blitz.'); return; }
+      if (best.prob < 0.999) {
+        const ok = await ask(`<h2>Blitz con riesgo</h2><p>Llegar hasta ${nm(q)} pide ${best.rolls} tirada${best.rolls > 1 ? 's' : ''}. Éxito aproximado: <b>${Math.round(best.prob * 100)}%</b>.</p>`, [{ label: 'Ir', value: true, primary: true }, { label: 'Cancelar', value: false }]);
+        if (!ok) return;
+      }
+      if (!(await ensureStarted('blitz'))) return;
+      if (best.prev) { const r = await moveAlong(s, pathOf(best)); if (r !== 'ok') { clearBlitzMark(); return; } }
+      if (cheb(s.x, s.y, q.x, q.y) !== 1 || q.state !== 'standing') { clearBlitzMark(); return; }
+      refresh();
+    }
+    clearBlitzMark();
+    const c = await confirmBlock(s, q, has(s, 'Stab')); if (!c) return;
+    if (!(await ensureStarted('blitz'))) return;
+    await blitzBlock(s, q, c === 'follow', c === 'stab');
+    if (s.state !== 'standing' || s.loc !== 'pitch') { finish(s); ui.sel = null; }
   }
   async function doMove(node) {
     const s = ui.sel;
@@ -558,28 +595,8 @@ if (!HEADLESS) (function () {
       }
       if (ui.mode === 'blitz') {
         if (s.blitzBlocked) return;
-        if (!adj || s.state === 'prone') {
-          const mv = computeMoves(s, { reserve: 1, action: 'blitz' }); let best = null;
-          if (adj && s.state === 'prone' && (s.ma >= 4 || has(s, 'Jump Up'))) best = { prob: 1, rolls: 0, prev: null };
-          else {
-            const bq = ballLoose() ? idx(G.ball.x, G.ball.y) : -1;
-            const better = (a, b) => { const ba = a.i === bq ? 1 : 0, bb = b.i === bq ? 1 : 0; if (ba !== bb) return ba < bb; if (Math.abs(a.prob - b.prob) > 1e-9) return a.prob > b.prob; if (a.rolls !== b.rolls) return a.rolls < b.rolls; return a.steps < b.steps; };
-            for (const [dx, dy] of DIRS) { const n = mv.get(idx(x + dx, y + dy)); if (n && (!best || better(n, best))) best = n; }
-          }
-          if (!best) { msg('Ese rival está fuera del alcance del blitz.'); return; }
-          if (best.prob < 0.999) {
-            const ok = await ask(`<h2>Blitz con riesgo</h2><p>Llegar hasta ${nm(q)} pide ${best.rolls} tirada${best.rolls > 1 ? 's' : ''}. Éxito aproximado: <b>${Math.round(best.prob * 100)}%</b>.</p>`, [{ label: 'Ir', value: true, primary: true }, { label: 'Cancelar', value: false }]);
-            if (!ok) return;
-          }
-          if (!(await ensureStarted('blitz'))) return;
-          if (best.prev) { const r = await moveAlong(s, pathOf(best)); if (r !== 'ok') return; }
-          if (cheb(s.x, s.y, q.x, q.y) !== 1 || q.state !== 'standing') return;
-          refresh();
-        }
-        const c = await confirmBlock(s, q, has(s, 'Stab')); if (!c) return;
-        if (!(await ensureStarted('blitz'))) return;
-        await blitzBlock(s, q, c === 'follow', c === 'stab');
-        if (s.state !== 'standing' || s.loc !== 'pitch') { finish(s); ui.sel = null; }
+        if (!adj && ui.blitzTarget !== q) { markBlitz(s, q); return; }
+        await runBlitz(s, q, adj, null);
         return;
       }
       if (ui.mode === 'move' && !s.started && !go) {
@@ -608,6 +625,13 @@ if (!HEADLESS) (function () {
       card(q); return;
     }
     const node = ui.moves.get(idx(x, y));
+    if (ui.mode === 'blitz' && ui.blitzTarget && node) {
+      const t = ui.blitzTarget;
+      if (t.loc === 'pitch' && t.state === 'standing' && cheb(x, y, t.x, t.y) === 1) { await runBlitz(s, t, false, node); return; }
+      await doMove(node);
+      if (ui.sel === s && ui.blitzTarget && t.loc === 'pitch' && t.state === 'standing') { if (cheb(s.x, s.y, t.x, t.y) === 1) { clearBlitzMark(); msg('<b>Blitz.</b> Ya estás al lado: clic en ' + nm(t) + ' para bloquear.'); } else markBlitz(s, t); }
+      return;
+    }
     if (node && !(s.started && s.action === 'block')) { await doMove(node); return; }
     if (!node && ui.mode === 'pass' && G.ball.carrier === s && s.state === 'standing') {
       const band = rangeBand(s.x, s.y, x, y);
@@ -689,7 +713,7 @@ if (!HEADLESS) (function () {
   cv.addEventListener('mousemove', ev => { if (fromTouch()) return; const [x, y] = sqOf(ev); hoverAt(x, y); });
   cv.addEventListener('mouseleave', () => { ui.hover = null; draw(); });
 
-  function modeBtn(id, mode) { $(id).onclick = () => { if (ui.busy || !ui.sel || ui.sel.started) return; ui.mode = ui.mode === mode ? 'move' : mode; refresh(); msg(hint()); }; }
+  function modeBtn(id, mode) { $(id).onclick = () => { if (ui.busy || !ui.sel || ui.sel.started) return; clearBlitzMark(); ui.mode = ui.mode === mode ? 'move' : mode; refresh(); msg(hint()); }; }
   modeBtn('bBlitz', 'blitz'); modeBtn('bPass', 'pass'); modeBtn('bHand', 'handoff'); modeBtn('bFoul', 'foul'); modeBtn('bTTM', 'ttm'); modeBtn('bVomit', 'vomit'); modeBtn('bStab', 'stab'); modeBtn('bPunt', 'punt');
   $('bSecure').onclick = () => guard(async () => {
     const s = ui.sel, node = ui.moves.get(idx(G.ball.x, G.ball.y)); if (!s || !node || !canSecure(s)) return;
