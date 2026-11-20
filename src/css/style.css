@@ -408,4 +408,9 @@ body.mob #wxtip{width:min(280px,calc(100vw - 16px))} body.mob #wxtip p{font-size
 body.mob .pst-side p{font-size:14px !important;line-height:1.4}
 
 .rt-top{display:flex;gap:10px;margin-bottom:12px}
-body.mob .rt-top{gap:6px;margin-bottom:6px} body.mob .rt-top>div{padding:4px 8px !important} body.mob .rt-top>div>div:first-child{font-size:18px !important}
+body.mob .rt-top{gap:6px;margin-bottom:6px} 
+
+.rt-c{flex:1;border:3px solid var(--ink);padding:8px 10px;color:var(--ink)}
+.rt-c.c1{background:linear-gradient(#f7d44a,#d9a520)} .rt-c.c2{background:linear-gradient(#d9dee3,#a7b0b9)} .rt-c.c3{background:linear-gradient(#d49a68,#a8683a)}
+.rt-n{font:900 30px/1 var(--disp);color:#0007} .rt-c b{display:block;font-size:15px;margin-top:2px} .rt-c span{font-size:12.5px;font-weight:600} .rt-p{font-size:12.5px;margin-top:3px;font-weight:700}
+body.mob .rt-c{padding:4px 8px} body.mob .rt-n{font-size:20px}

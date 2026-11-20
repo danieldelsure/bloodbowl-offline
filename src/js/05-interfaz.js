@@ -1099,7 +1099,7 @@ if (!HEADLESS) (function () {
   /* Tabla oficial del torneo real, antes de elegir equipo */
   function realTableHtml() {
     const med = ['#f2c230', '#c3c7cc', '#cd8a4b'];
-    const top = TDC.real.slice(0, 3).map((r, k) => { const t = TDC.teams[r[0]]; return `<div style="flex:1;border:3px solid var(--ink);border-top:8px solid ${med[k]};padding:8px 10px;background:#fff8e6"><div style="font:900 26px/1 var(--disp)">${k + 1}º</div><b style="display:block;font-size:15px;margin-top:2px">${t.name}</b><span style="font-size:12.5px">${t.race} · ${t.coach}</span><div style="font-size:12.5px;margin-top:3px;font-weight:700">${r[1]} pts · ${r[2]}-${r[3]}-${r[4]}</div></div>`; }).join('');
+    const top = TDC.real.slice(0, 3).map((r, k) => { const t = TDC.teams[r[0]]; return `<div class="rt-c c${k + 1}"><div class="rt-n">${k + 1}º</div><b>${t.name}</b><span>${t.race} · ${t.coach}</span><div class="rt-p">${r[1]} pts · ${r[2]}-${r[3]}-${r[4]}</div></div>`; }).join('');
     const rows = TDC.real.map((r, k) => { if (k < 3) return ''; const t = TDC.teams[r[0]]; return `<tr><td class="n">${k + 1}</td><td>${t.name}</td><td>${t.coach}</td><td>${t.race}</td><td class="n">${r[1]}</td><td class="n">${r[2]}-${r[3]}-${r[4]}</td><td class="n">${r[5]}-${r[6]}</td></tr>`; }).join('');
     return `<h2>Así terminó el ${TDC.name}</h2><p class="sub" style="margin:0 0 10px">Tabla oficial del torneo real, 6 de diciembre de 2025. Ahora te toca intentar superarla.</p>
       <div class="rt-top">${top}</div>
