@@ -431,6 +431,9 @@ body.mob #wxtip{width:min(280px,calc(100vw - 16px))} body.mob #wxtip p{font-size
 .pst-k{color:#fff4d6}
 body.mob .pst-side p{font-size:14px !important;line-height:1.4}
 
+.rt-top{display:flex;gap:10px;margin-bottom:12px}
+body.mob .rt-top{gap:6px;margin-bottom:6px} body.mob .rt-top>div{padding:4px 8px !important} body.mob .rt-top>div>div:first-child{font-size:18px !important}
+
 </style>
 </head>
 <body>
@@ -3830,7 +3833,17 @@ if (!HEADLESS) (function () {
     });
   }
   const trioHtml = (t, z) => trio(t).map((p, k) => `<canvas data-s="${p.sheet}" data-var="${p.variant}" data-z="${k === 1 ? z * 1.25 : z}" class="tr${k}"></canvas>`).join('');
+  /* Tabla oficial del torneo real, antes de elegir equipo */
+  function realTableHtml() {
+    const med = ['#f2c230', '#c3c7cc', '#cd8a4b'];
+    const top = TDC.real.slice(0, 3).map((r, k) => { const t = TDC.teams[r[0]]; return `<div style="flex:1;border:3px solid var(--ink);border-top:8px solid ${med[k]};padding:8px 10px;background:#fff8e6"><div style="font:900 26px/1 var(--disp)">${k + 1}º</div><b style="display:block;font-size:15px;margin-top:2px">${t.name}</b><span style="font-size:12.5px">${t.race} · ${t.coach}</span><div style="font-size:12.5px;margin-top:3px;font-weight:700">${r[1]} pts · ${r[2]}-${r[3]}-${r[4]}</div></div>`; }).join('');
+    const rows = TDC.real.map((r, k) => { if (k < 3) return ''; const t = TDC.teams[r[0]]; return `<tr><td class="n">${k + 1}</td><td>${t.name}</td><td>${t.coach}</td><td>${t.race}</td><td class="n">${r[1]}</td><td class="n">${r[2]}-${r[3]}-${r[4]}</td><td class="n">${r[5]}-${r[6]}</td></tr>`; }).join('');
+    return `<h2>Así terminó el ${TDC.name}</h2><p class="sub" style="margin:0 0 10px">Tabla oficial del torneo real, 6 de diciembre de 2025. Ahora te toca intentar superarla.</p>
+      <div class="rt-top">${top}</div>
+      <table><tr><th class="n">#</th><th>Equipo</th><th>Entrenador</th><th>Raza</th><th class="n">Pts</th><th class="n">G-E-P</th><th class="n">TD</th></tr>${rows}</table>`;
+  }
   async function newTournament() {
+    if (!(await ask(realTableHtml(), [{ label: 'Elegir mi equipo', value: 1, primary: true }, { label: 'Volver', value: 0 }], true))) return null;
     const rosterHtml = i => { const t = tn(i); return `<div class="tp-hd"><div class="tp-trio" style="background:${bg(i)}">${trioHtml(t, 96)}</div><div><h3>${t.name}</h3><div class="tp-meta">${t.race} · ${t.coach} · TV ${t.tv}</div><p class="sub">${t.rr} rerolls${t.apo ? ' · apotecario' : ''}${t.coaches ? ' · ' + t.coaches + ' ayudantes' : ''}${t.cheer ? ' · ' + t.cheer + ' animadoras' : ''}${t.kegs ? ' · barril de cerveza' : ''}</p></div></div><table><tr><th>Jugador</th><th>Posición</th><th class="n">MA</th><th class="n">ST</th><th class="n">AG</th><th class="n">PA</th><th class="n">AV</th><th>Habilidades</th></tr>` +
       t.players.map(p => `<tr><td>${p.name}</td><td>${p.pos}</td><td class="n">${p.ma}</td><td class="n">${p.st}</td><td class="n">${p.ag}+</td><td class="n">${p.pa ? p.pa + '+' : '-'}</td><td class="n">${p.av}+</td><td>${p.sk.map(k => p.ex.includes(k) ? `<b class="xs">${k} ★</b>` : k).join(', ')}</td></tr>`).join('') + '</table><p class="sub"><b class="xs">★</b> habilidad extra que el entrenador agregó a ese jugador.</p>'; };
     /* equipos con el mismo trío: fondo de otro tono, y orden de la grilla sin repetidos pegados */

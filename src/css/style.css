@@ -406,3 +406,6 @@ body.mob #wxtip{width:min(280px,calc(100vw - 16px))} body.mob #wxtip p{font-size
 .pst-side p{color:#efe3c6 !important;font-size:17px !important;line-height:1.45;font-weight:500}
 .pst-k{color:#fff4d6}
 body.mob .pst-side p{font-size:14px !important;line-height:1.4}
+
+.rt-top{display:flex;gap:10px;margin-bottom:12px}
+body.mob .rt-top{gap:6px;margin-bottom:6px} body.mob .rt-top>div{padding:4px 8px !important} body.mob .rt-top>div>div:first-child{font-size:18px !important}
