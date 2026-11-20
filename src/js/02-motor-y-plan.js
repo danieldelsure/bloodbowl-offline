@@ -492,8 +492,8 @@ function computeMoves(p, o) {
   const dodgeRR = has(p, 'Dodge') && !p.dodgeUsed, stunty = has(p, 'Stunty'), RP = (7 - rushNeed()) / 6;
   const best = new Map();
   const layers = Array.from({ length: Math.max(0, maxSteps) + 3 }, () => new Map());
-  const put = (L, n) => { const ex = L.get(n.i); if (!ex || ex.prob < n.prob - 1e-9 || (Math.abs(ex.prob - n.prob) <= 1e-9 && n.rolls < ex.rolls)) L.set(n.i, n); };
-  layers[0].set(idx(p.x, p.y), { i: idx(p.x, p.y), x: p.x, y: p.y, prob: 1, prev: null, steps: 0, rolls: 0 });
+  const put = (L, n) => { const ex = L.get(n.i); if (!ex || ex.prob < n.prob - 1e-9 || (Math.abs(ex.prob - n.prob) <= 1e-9 && (n.rolls < ex.rolls || (n.rolls === ex.rolls && n.bend < ex.bend)))) L.set(n.i, n); };   // a igual costo gana la ruta con menos giros: sin zigzags
+  layers[0].set(idx(p.x, p.y), { i: idx(p.x, p.y), x: p.x, y: p.y, prob: 1, prev: null, steps: 0, rolls: 0, bend: 0, dir: null });
   for (let s = 0; s < maxSteps; s++) {
     for (const n of layers[s].values()) {
       if (n.i === ballSq && s > 0) continue;
@@ -509,14 +509,14 @@ function computeMoves(p, o) {
             let pr = n.prob * clampP((7 - jn) / 6), rolls = n.rolls + 1;
             for (const k of [s + 1, s + 2]) if (k > ma) { pr *= RP; rolls++; lab.push(rushNeed() + '+'); }
             lab.push(Math.max(2, Math.min(6, jn)) + '+');
-            put(layers[s + 2], { i: li, x: lx, y: ly, prob: pr, prev: n, steps: s + 2, rolls, jump: true, lab });
+            put(layers[s + 2], { i: li, x: lx, y: ly, prob: pr, prev: n, steps: s + 2, rolls, jump: true, lab, bend: n.bend + 2, dir: null });
           }
           if (occ[ni]) continue;
         }
         let pr = n.prob, rolls = n.rolls; const lab = [];
         if (s + 1 > ma) { pr *= RP; rolls++; lab.push(rushNeed() + '+'); }
         if (marked) { const dn2 = p.ag + (stunty ? 0 : tz[ni]) + hard[n.i]; let ps = clampP((7 - dn2) / 6); if (dodgeRR && !tk[n.i]) ps = 1 - (1 - ps) * (1 - ps); pr *= ps; rolls++; lab.push(Math.max(2, Math.min(6, dn2)) + '+'); }
-        put(layers[s + 1], { i: ni, x, y, prob: pr, prev: n, steps: s + 1, rolls, lab });
+        put(layers[s + 1], { i: ni, x, y, prob: pr, prev: n, steps: s + 1, rolls, lab, bend: n.bend + (n.dir && (n.dir[0] !== dx || n.dir[1] !== dy) ? 1 : 0), dir: [dx, dy] });
       }
     }
   }

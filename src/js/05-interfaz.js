@@ -331,7 +331,8 @@ if (!HEADLESS) (function () {
       const BC = ['#3fbf5f66', '#ffd23f66', '#ff9a2f70', '#e04a3a70'];
       for (let yy = 0; yy < H; yy++) for (let xx = 0; xx < W; xx++) { const bd = rangeBand(ui.sel.x, ui.sel.y, xx, yy); if (bd >= 0 && !(xx === ui.sel.x && yy === ui.sel.y)) { ctx.fillStyle = BC[bd]; ctx.fillRect(xx * S + 1, yy * S + 1, S - 2, S - 2); } }
     }
-    if (ui.phase === 'turn' && ui.sel) {
+    const mvOk = ui.sel && ui.movesKey === movesKeyOf(ui.sel);   // las casillas y la ruta solo valen para la posición desde la que se calcularon
+    if (ui.phase === 'turn' && ui.sel && mvOk) {
       for (const n of ui.moves.values()) {
         ctx.fillStyle = n.prob >= 0.999 ? '#7dffa055' : n.prob >= 0.6 ? '#ffe45c70' : '#ff4d3d85';
         ctx.fillRect(n.x * S + 2, n.y * S + 2, S - 4, S - 4);
@@ -345,7 +346,7 @@ if (!HEADLESS) (function () {
     if (ui.hl && ui.hl.squares) for (const [x, y] of ui.hl.squares) { ctx.fillStyle = ui.hl.color; ctx.fillRect(x * S + 2, y * S + 2, S - 4, S - 4); }
     if (ui.tutHl) for (const [x, y] of ui.tutHl) { ctx.fillStyle = '#ffd23f40'; ctx.fillRect(x * S + 2, y * S + 2, S - 4, S - 4); ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 4; ctx.strokeRect(x * S + 3, y * S + 3, S - 6, S - 6); }
     if (ui.hl && ui.hl.mark && inPitch(ui.hl.mark[0], ui.hl.mark[1])) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.strokeRect(ui.hl.mark[0] * S + 2, ui.hl.mark[1] * S + 2, S - 4, S - 4); }
-    if (ui.hover && ui.phase === 'turn' && ui.sel) {
+    if (ui.hover && ui.phase === 'turn' && ui.sel && mvOk) {
       const n = ui.moves.get(idx(ui.hover[0], ui.hover[1]));
       if (n) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(ui.sel.x * S + S / 2, ui.sel.y * S + S / 2); for (const [x, y] of pathOf(n)) ctx.lineTo(x * S + S / 2, y * S + S / 2); ctx.stroke(); }
     }
@@ -467,11 +468,13 @@ if (!HEADLESS) (function () {
     if (G.charge) return `<b>¡Carga!</b> Puedes activar hasta ${G.charge.left} jugador${G.charge.left === 1 ? '' : 'es'} libre${G.charge.left === 1 ? '' : 's'}: movimiento gratis, y uno puede hacer blitz. Aprieta "Terminar turno" al terminar.`;
     return `<b>Tu turno ${G.turn[HT]} de ${TURNS}.</b> Selecciona un jugador o termina el turno.`;
   }
+  const movesKeyOf = q => q ? `${q.x},${q.y},${q.maLeft},${q.rushes},${q.started ? 1 : 0},${q.state},${ui.mode}` : '';
   function refresh() {
     if (!G) return;
     if (ui.sel && (ui.sel.loc !== 'pitch' || ui.sel.used || ui.sel.state === 'stunned')) { ui.sel = null; ui.mode = 'move'; }
     ui.moves = (ui.phase === 'turn' && ui.sel) ? computeMoves(ui.sel, { action: ui.mode }) : new Map();
     if (ui.sel && ui.sel.state !== 'standing' && ui.sel.started) ui.moves = new Map();
+    ui.movesKey = movesKeyOf(ui.sel);
     header(); buttons(); draw();
     showSel();
   }
