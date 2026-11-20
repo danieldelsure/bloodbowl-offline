@@ -897,6 +897,7 @@ async function applyInjury(p, bonus, crowd, by) {
   let kind;
   if (has(p, 'Stunty')) kind = r <= 6 ? 'stun' : r <= 8 ? 'ko' : r === 9 ? 'bh' : 'cas';
   else kind = (r <= 7 || (r === 8 && has(p, 'Thick Skull'))) ? 'stun' : r <= 9 ? 'ko' : 'cas';
+  await fxD6(p, 'Herida', null, [a, b], null, `Herida · ${r}: ${{ stun: 'aturdido', ko: 'inconsciente', bh: 'baja', cas: 'baja' }[kind]}`);
   const head = `Herida de ${nm(p)}: ${a}+${b}${bonus ? '+' + bonus : ''} = ${r}: `;
   if (kind === 'stun') {
     if (crowd) { removeFromPitch(p, 'reserve'); log(head + 'vuelve a la reserva', 't' + p.team); }
@@ -962,6 +963,7 @@ async function knockDown(p, o) {   // devuelve true si el jugador realmente cae
   p.state = 'prone'; p.rooted = false;
   if (p.team === G.active && G.phase === 'turn' && !o.noTO) G.turnover = true;
   const a = d6(), b = d6(); let ar = a + b, mb = !!o.mb, broke = ar >= p.av, note = '';
+  await fxD6(p, 'Armadura', p.av, [a, b], null, `Armadura ${p.av}+ · ${ar}: ${broke ? 'se rompe' : 'aguanta'}`);
   if (!broke && o.claws && ar >= 8) { broke = true; note = ' (Claws)'; }
   if (!broke && mb && ar + 1 >= p.av) { broke = true; mb = false; note = ' (+1 Mighty Blow)'; }
   log(`${nm(p)} cae. Armadura ${p.av}+: ${a}+${b}${note} ${broke ? 'rota' : 'aguanta'}`, 't' + p.team);
@@ -1391,6 +1393,7 @@ async function stab(p, e, keep) {
   if (await foulAppearance(p, e)) {
     await dumpOff(e);
     const a = d6(), b = d6(), broke = a + b >= e.av, had = G.ball.carrier === e, sx = e.x, sy = e.y;
+    await fxD6(e, 'Armadura', e.av, [a, b], null, `Armadura ${e.av}+ · ${a + b}: ${broke ? 'se rompe' : 'aguanta'}`);
     log(`${nm(p)} apuñala a ${nm(e)}. Armadura ${e.av}+: ${a}+${b} ${broke ? 'rota' : 'aguanta'}`, 't' + p.team);
     if (broke) {
       await applyInjury(e, 0, false);
@@ -1471,12 +1474,13 @@ async function pass(p, tx, ty, o) {
   const ev = r => (r === 1 || r - mod <= 1) ? 'fumble' : (r === 6 || r - mod >= p.pa) ? 'ok' : 'bad';
   const txt = { ok: 'preciso', bad: 'impreciso', fumble: '¡se le cae el balón!' };
   let r = d6(), res = ev(r);
+  await fxD6(p, 'Pase', Math.min(6, Math.max(2, p.pa + mod)), r, res === 'ok');
   log(`${nm(p)} lanza un pase ${BAND_NAME[band]} (${Math.min(6, Math.max(2, p.pa + mod))}+): saca ${r}, ${txt[res]}`, 't' + p.team);
   if (res !== 'ok') {
     let again = false;
     if (has(p, 'Pass')) { again = true; log(`${nm(p)} repite con Pass`, 't' + p.team); }
     else if (await teamReroll(p, 'Pase')) again = true;
-    if (again) { r = d6(); res = ev(r); log(`Repite y saca ${r}, ${txt[res]}`, 't' + p.team); }
+    if (again) { r = d6(); res = ev(r); await fxD6(p, 'Pase (repite)', Math.min(6, Math.max(2, p.pa + mod)), r, res === 'ok'); log(`Repite y saca ${r}, ${txt[res]}`, 't' + p.team); }
   }
   if (res === 'fumble' && r === 1 && has(p, 'Safe Pass')) { log(`${nm(p)} se aferra al balón (Safe Pass): no hay turnover`, 'good'); if (!o.dump) finish(p); render(); return; }
   G.ball.carrier = null; G.ball.x = p.x; G.ball.y = p.y;
@@ -1549,6 +1553,7 @@ async function vomit(p, e) {
   const r = d6(), tgt = r >= 2 ? e : p;
   log(`${nm(p)} usa Vómito sobre ${nm(e)}: saca ${r}${r >= 2 ? '' : ', ¡se vomita encima!'}`, 't' + p.team);
   const a = d6(), b = d6(), broke = a + b >= tgt.av, had = G.ball.carrier === tgt, sx = tgt.x, sy = tgt.y;
+  await fxD6(tgt, 'Armadura', tgt.av, [a, b], null, `Armadura ${tgt.av}+ · ${a + b}: ${broke ? 'se rompe' : 'aguanta'}`);
   log(`Armadura de ${nm(tgt)} ${tgt.av}+: ${a}+${b} ${broke ? 'rota' : 'aguanta'}`, 't' + tgt.team);
   if (broke) {
     await applyInjury(tgt, 0, false);
@@ -2836,25 +2841,30 @@ if (!HEADLESS) (function () {
   /* dado de seis caras (tiradas de esquivar, esprintar, recoger, atrapar...): cae junto al jugador y muestra qué se necesitaba */
   const PIPS = { 1: [[50, 50]], 2: [[27, 27], [73, 73]], 3: [[27, 27], [50, 50], [73, 73]], 4: [[27, 27], [73, 27], [27, 73], [73, 73]], 5: [[27, 27], [73, 27], [50, 50], [27, 73], [73, 73]], 6: [[27, 24], [73, 24], [27, 50], [73, 50], [27, 76], [73, 76]] };
   const d6img = n => 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' + PIPS[n].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="10.5" fill="#121417"/>`).join('') + '</svg>');
-  fxD6 = async (p, label, need, r, ok) => {
+  fxD6 = async (p, label, need, r, ok, txt) => {
     if (SIM || reviewing || !p || p.loc !== 'pitch') return;
+    const rs = Array.isArray(r) ? r : [r], n = rs.length;
     const box = $('dfx'); box.innerHTML = ''; box.hidden = false;
-    const c = cellBox(p.x, p.y), ds = Math.max(46, Math.min(66, c.sz * 1.15)), above = p.y >= 3, ty = above ? c.cy - c.sz * 1.15 : c.cy + c.sz * 1.15;
-    const tx = Math.max(c.l + ds / 2 + 4, Math.min(c.l + c.w - ds / 2 - 4, c.cx));
-    const el = document.createElement('div'); el.className = 'fxd d6'; el.style.cssText = `width:${ds}px;height:${ds}px;left:${tx - ds / 2}px;top:${ty - ds / 2}px`;
-    const im = document.createElement('img'); im.src = d6img(1 + Math.floor(Math.random() * 6)); el.appendChild(im); box.appendChild(el);
-    const tg = document.createElement('div'); tg.className = 'fxt'; tg.style.cssText = `left:${tx}px;top:${above ? ty - ds / 2 - 6 : ty + ds / 2 + 6}px;transform:translate(-50%,${above ? '-100%' : '0'});opacity:0`; tg.textContent = `${label} · ${need}+`; box.appendChild(tg);
-    const sx = c.cx - tx, sy = c.cy - ty, rot = (Math.random() < .5 ? -1 : 1) * 360 * (2 + Math.floor(Math.random() * 2));
-    const an = el.animate([
-      { transform: `translate(${sx}px,${sy}px) rotate(0deg) scale(.45)`, opacity: .2 },
-      { transform: `translate(${sx * .45}px,${sy * .45 - 40}px) rotate(${rot * .55}deg) scale(1.3)`, opacity: 1, offset: .5 },
-      { transform: `translate(0,0) rotate(${rot}deg) scale(1)`, opacity: 1 }], { duration: 700, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'forwards' });
-    const tm = setInterval(() => { im.src = d6img(1 + Math.floor(Math.random() * 6)); }, 70);
-    await an.finished.catch(() => 0);
-    clearInterval(tm); im.src = d6img(r); el.style.transform = 'none'; el.classList.add(ok ? 'ok' : 'ko');
-    el.animate([{ transform: 'scale(1.2)' }, { transform: 'scale(1)' }], { duration: 160 });
-    tg.classList.add(ok ? 'ok' : 'ko'); tg.style.opacity = 1;
-    await fxWait(ok ? 520 : 800);
+    const c = cellBox(p.x, p.y), ds = Math.max(46, Math.min(66, c.sz * 1.15)), gap = 8, tw = n * ds + (n - 1) * gap, above = p.y >= 3, ty = above ? c.cy - c.sz * 1.15 : c.cy + c.sz * 1.15;
+    const tx = Math.max(c.l + tw / 2 + 4, Math.min(c.l + c.w - tw / 2 - 4, c.cx));
+    const els = [], ims = [], anims = [];
+    rs.forEach((v, i) => {
+      const lx = tx - tw / 2 + i * (ds + gap), el = document.createElement('div'); el.className = 'fxd d6'; el.style.cssText = `width:${ds}px;height:${ds}px;left:${lx}px;top:${ty - ds / 2}px`;
+      const im = document.createElement('img'); im.src = d6img(1 + Math.floor(Math.random() * 6)); el.appendChild(im); box.appendChild(el); els.push(el); ims.push(im);
+      const sx = c.cx - (lx + ds / 2), sy = c.cy - ty, rot = (Math.random() < .5 ? -1 : 1) * 360 * (2 + Math.floor(Math.random() * 2));
+      anims.push(el.animate([
+        { transform: `translate(${sx}px,${sy}px) rotate(0deg) scale(.45)`, opacity: .2 },
+        { transform: `translate(${sx * .45}px,${sy * .45 - 40}px) rotate(${rot * .55}deg) scale(1.3)`, opacity: 1, offset: .5 },
+        { transform: `translate(0,0) rotate(${rot}deg) scale(1)`, opacity: 1 }], { duration: 700 + i * 110, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'forwards' }));
+    });
+    const tg = document.createElement('div'); tg.className = 'fxt'; tg.style.cssText = `left:${tx}px;top:${above ? ty - ds / 2 - 6 : ty + ds / 2 + 6}px;transform:translate(-50%,${above ? '-100%' : '0'});opacity:0`;
+    tg.textContent = txt || `${label} · ${need}+`; box.appendChild(tg);
+    const tm = setInterval(() => { ims.forEach(im => { im.src = d6img(1 + Math.floor(Math.random() * 6)); }); }, 70);
+    await Promise.all(anims.map(x => x.finished.catch(() => 0)));
+    clearInterval(tm);
+    els.forEach((el, i) => { ims[i].src = d6img(rs[i]); el.style.transform = 'none'; if (ok != null) el.classList.add(ok ? 'ok' : 'ko'); el.animate([{ transform: 'scale(1.2)' }, { transform: 'scale(1)' }], { duration: 160 }); });
+    if (ok != null) tg.classList.add(ok ? 'ok' : 'ko'); tg.style.opacity = 1;
+    await fxWait(ok === false ? 800 : 560);
     box.hidden = true; box.innerHTML = '';
   };
   /* PC: se elige el dado haciendo clic directo en los dados de la cancha (en celular se mantiene la ventana) */

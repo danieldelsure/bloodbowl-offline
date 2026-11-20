@@ -197,6 +197,7 @@ async function applyInjury(p, bonus, crowd, by) {
   let kind;
   if (has(p, 'Stunty')) kind = r <= 6 ? 'stun' : r <= 8 ? 'ko' : r === 9 ? 'bh' : 'cas';
   else kind = (r <= 7 || (r === 8 && has(p, 'Thick Skull'))) ? 'stun' : r <= 9 ? 'ko' : 'cas';
+  await fxD6(p, 'Herida', null, [a, b], null, `Herida · ${r}: ${{ stun: 'aturdido', ko: 'inconsciente', bh: 'baja', cas: 'baja' }[kind]}`);
   const head = `Herida de ${nm(p)}: ${a}+${b}${bonus ? '+' + bonus : ''} = ${r}: `;
   if (kind === 'stun') {
     if (crowd) { removeFromPitch(p, 'reserve'); log(head + 'vuelve a la reserva', 't' + p.team); }
@@ -262,6 +263,7 @@ async function knockDown(p, o) {   // devuelve true si el jugador realmente cae
   p.state = 'prone'; p.rooted = false;
   if (p.team === G.active && G.phase === 'turn' && !o.noTO) G.turnover = true;
   const a = d6(), b = d6(); let ar = a + b, mb = !!o.mb, broke = ar >= p.av, note = '';
+  await fxD6(p, 'Armadura', p.av, [a, b], null, `Armadura ${p.av}+ · ${ar}: ${broke ? 'se rompe' : 'aguanta'}`);
   if (!broke && o.claws && ar >= 8) { broke = true; note = ' (Claws)'; }
   if (!broke && mb && ar + 1 >= p.av) { broke = true; mb = false; note = ' (+1 Mighty Blow)'; }
   log(`${nm(p)} cae. Armadura ${p.av}+: ${a}+${b}${note} ${broke ? 'rota' : 'aguanta'}`, 't' + p.team);
@@ -691,6 +693,7 @@ async function stab(p, e, keep) {
   if (await foulAppearance(p, e)) {
     await dumpOff(e);
     const a = d6(), b = d6(), broke = a + b >= e.av, had = G.ball.carrier === e, sx = e.x, sy = e.y;
+    await fxD6(e, 'Armadura', e.av, [a, b], null, `Armadura ${e.av}+ · ${a + b}: ${broke ? 'se rompe' : 'aguanta'}`);
     log(`${nm(p)} apuñala a ${nm(e)}. Armadura ${e.av}+: ${a}+${b} ${broke ? 'rota' : 'aguanta'}`, 't' + p.team);
     if (broke) {
       await applyInjury(e, 0, false);
@@ -771,12 +774,13 @@ async function pass(p, tx, ty, o) {
   const ev = r => (r === 1 || r - mod <= 1) ? 'fumble' : (r === 6 || r - mod >= p.pa) ? 'ok' : 'bad';
   const txt = { ok: 'preciso', bad: 'impreciso', fumble: '¡se le cae el balón!' };
   let r = d6(), res = ev(r);
+  await fxD6(p, 'Pase', Math.min(6, Math.max(2, p.pa + mod)), r, res === 'ok');
   log(`${nm(p)} lanza un pase ${BAND_NAME[band]} (${Math.min(6, Math.max(2, p.pa + mod))}+): saca ${r}, ${txt[res]}`, 't' + p.team);
   if (res !== 'ok') {
     let again = false;
     if (has(p, 'Pass')) { again = true; log(`${nm(p)} repite con Pass`, 't' + p.team); }
     else if (await teamReroll(p, 'Pase')) again = true;
-    if (again) { r = d6(); res = ev(r); log(`Repite y saca ${r}, ${txt[res]}`, 't' + p.team); }
+    if (again) { r = d6(); res = ev(r); await fxD6(p, 'Pase (repite)', Math.min(6, Math.max(2, p.pa + mod)), r, res === 'ok'); log(`Repite y saca ${r}, ${txt[res]}`, 't' + p.team); }
   }
   if (res === 'fumble' && r === 1 && has(p, 'Safe Pass')) { log(`${nm(p)} se aferra al balón (Safe Pass): no hay turnover`, 'good'); if (!o.dump) finish(p); render(); return; }
   G.ball.carrier = null; G.ball.x = p.x; G.ball.y = p.y;
@@ -849,6 +853,7 @@ async function vomit(p, e) {
   const r = d6(), tgt = r >= 2 ? e : p;
   log(`${nm(p)} usa Vómito sobre ${nm(e)}: saca ${r}${r >= 2 ? '' : ', ¡se vomita encima!'}`, 't' + p.team);
   const a = d6(), b = d6(), broke = a + b >= tgt.av, had = G.ball.carrier === tgt, sx = tgt.x, sy = tgt.y;
+  await fxD6(tgt, 'Armadura', tgt.av, [a, b], null, `Armadura ${tgt.av}+ · ${a + b}: ${broke ? 'se rompe' : 'aguanta'}`);
   log(`Armadura de ${nm(tgt)} ${tgt.av}+: ${a}+${b} ${broke ? 'rota' : 'aguanta'}`, 't' + tgt.team);
   if (broke) {
     await applyInjury(tgt, 0, false);

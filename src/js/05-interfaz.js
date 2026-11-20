@@ -57,25 +57,30 @@ if (!HEADLESS) (function () {
   /* dado de seis caras (tiradas de esquivar, esprintar, recoger, atrapar...): cae junto al jugador y muestra qué se necesitaba */
   const PIPS = { 1: [[50, 50]], 2: [[27, 27], [73, 73]], 3: [[27, 27], [50, 50], [73, 73]], 4: [[27, 27], [73, 27], [27, 73], [73, 73]], 5: [[27, 27], [73, 27], [50, 50], [27, 73], [73, 73]], 6: [[27, 24], [73, 24], [27, 50], [73, 50], [27, 76], [73, 76]] };
   const d6img = n => 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' + PIPS[n].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="10.5" fill="#121417"/>`).join('') + '</svg>');
-  fxD6 = async (p, label, need, r, ok) => {
+  fxD6 = async (p, label, need, r, ok, txt) => {
     if (SIM || reviewing || !p || p.loc !== 'pitch') return;
+    const rs = Array.isArray(r) ? r : [r], n = rs.length;
     const box = $('dfx'); box.innerHTML = ''; box.hidden = false;
-    const c = cellBox(p.x, p.y), ds = Math.max(46, Math.min(66, c.sz * 1.15)), above = p.y >= 3, ty = above ? c.cy - c.sz * 1.15 : c.cy + c.sz * 1.15;
-    const tx = Math.max(c.l + ds / 2 + 4, Math.min(c.l + c.w - ds / 2 - 4, c.cx));
-    const el = document.createElement('div'); el.className = 'fxd d6'; el.style.cssText = `width:${ds}px;height:${ds}px;left:${tx - ds / 2}px;top:${ty - ds / 2}px`;
-    const im = document.createElement('img'); im.src = d6img(1 + Math.floor(Math.random() * 6)); el.appendChild(im); box.appendChild(el);
-    const tg = document.createElement('div'); tg.className = 'fxt'; tg.style.cssText = `left:${tx}px;top:${above ? ty - ds / 2 - 6 : ty + ds / 2 + 6}px;transform:translate(-50%,${above ? '-100%' : '0'});opacity:0`; tg.textContent = `${label} · ${need}+`; box.appendChild(tg);
-    const sx = c.cx - tx, sy = c.cy - ty, rot = (Math.random() < .5 ? -1 : 1) * 360 * (2 + Math.floor(Math.random() * 2));
-    const an = el.animate([
-      { transform: `translate(${sx}px,${sy}px) rotate(0deg) scale(.45)`, opacity: .2 },
-      { transform: `translate(${sx * .45}px,${sy * .45 - 40}px) rotate(${rot * .55}deg) scale(1.3)`, opacity: 1, offset: .5 },
-      { transform: `translate(0,0) rotate(${rot}deg) scale(1)`, opacity: 1 }], { duration: 700, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'forwards' });
-    const tm = setInterval(() => { im.src = d6img(1 + Math.floor(Math.random() * 6)); }, 70);
-    await an.finished.catch(() => 0);
-    clearInterval(tm); im.src = d6img(r); el.style.transform = 'none'; el.classList.add(ok ? 'ok' : 'ko');
-    el.animate([{ transform: 'scale(1.2)' }, { transform: 'scale(1)' }], { duration: 160 });
-    tg.classList.add(ok ? 'ok' : 'ko'); tg.style.opacity = 1;
-    await fxWait(ok ? 520 : 800);
+    const c = cellBox(p.x, p.y), ds = Math.max(46, Math.min(66, c.sz * 1.15)), gap = 8, tw = n * ds + (n - 1) * gap, above = p.y >= 3, ty = above ? c.cy - c.sz * 1.15 : c.cy + c.sz * 1.15;
+    const tx = Math.max(c.l + tw / 2 + 4, Math.min(c.l + c.w - tw / 2 - 4, c.cx));
+    const els = [], ims = [], anims = [];
+    rs.forEach((v, i) => {
+      const lx = tx - tw / 2 + i * (ds + gap), el = document.createElement('div'); el.className = 'fxd d6'; el.style.cssText = `width:${ds}px;height:${ds}px;left:${lx}px;top:${ty - ds / 2}px`;
+      const im = document.createElement('img'); im.src = d6img(1 + Math.floor(Math.random() * 6)); el.appendChild(im); box.appendChild(el); els.push(el); ims.push(im);
+      const sx = c.cx - (lx + ds / 2), sy = c.cy - ty, rot = (Math.random() < .5 ? -1 : 1) * 360 * (2 + Math.floor(Math.random() * 2));
+      anims.push(el.animate([
+        { transform: `translate(${sx}px,${sy}px) rotate(0deg) scale(.45)`, opacity: .2 },
+        { transform: `translate(${sx * .45}px,${sy * .45 - 40}px) rotate(${rot * .55}deg) scale(1.3)`, opacity: 1, offset: .5 },
+        { transform: `translate(0,0) rotate(${rot}deg) scale(1)`, opacity: 1 }], { duration: 700 + i * 110, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'forwards' }));
+    });
+    const tg = document.createElement('div'); tg.className = 'fxt'; tg.style.cssText = `left:${tx}px;top:${above ? ty - ds / 2 - 6 : ty + ds / 2 + 6}px;transform:translate(-50%,${above ? '-100%' : '0'});opacity:0`;
+    tg.textContent = txt || `${label} · ${need}+`; box.appendChild(tg);
+    const tm = setInterval(() => { ims.forEach(im => { im.src = d6img(1 + Math.floor(Math.random() * 6)); }); }, 70);
+    await Promise.all(anims.map(x => x.finished.catch(() => 0)));
+    clearInterval(tm);
+    els.forEach((el, i) => { ims[i].src = d6img(rs[i]); el.style.transform = 'none'; if (ok != null) el.classList.add(ok ? 'ok' : 'ko'); el.animate([{ transform: 'scale(1.2)' }, { transform: 'scale(1)' }], { duration: 160 }); });
+    if (ok != null) tg.classList.add(ok ? 'ok' : 'ko'); tg.style.opacity = 1;
+    await fxWait(ok === false ? 800 : 560);
     box.hidden = true; box.innerHTML = '';
   };
   /* PC: se elige el dado haciendo clic directo en los dados de la cancha (en celular se mantiene la ventana) */
