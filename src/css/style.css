@@ -436,3 +436,8 @@ body.mob #cartel .ct-top button{padding:2px 7px;font-size:11.5px}
 body.mob #cartel h3{font-size:16px;margin:3px 0}
 body.mob #cartel #ctX,body.mob #cartel #ctStep{font-size:12px;line-height:1.25}
 body.mob #cartel #ctStep{padding:4px 6px;margin-top:4px}
+
+.fxd.d6.ok{border-color:#1f7a3a;box-shadow:6px 6px 0 #0b3d1c99}
+.fxd.d6.ko{border-color:#a3261c;box-shadow:6px 6px 0 #5a120d99}
+.fxt{position:absolute;white-space:nowrap;font:800 15px var(--body);background:var(--ink);color:var(--bone);padding:3px 10px;border-radius:2px;transition:opacity .15s}
+.fxt.ok{background:#1f7a3a;color:#fff}.fxt.ko{background:#a3261c;color:#fff}

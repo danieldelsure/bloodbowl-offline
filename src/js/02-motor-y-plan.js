@@ -79,7 +79,7 @@ const KICKEV = {
 let G = null;
 let render = () => {};
 let flash = () => {};
-let fxRoll = async () => {}, fxPick = async () => {}, fxBanner = async () => {};
+let fxRoll = async () => {}, fxPick = async () => {}, fxBanner = async () => {}, fxD6 = async () => {};
 let onLog = () => {};
 
 function log(text, cls) { G.log.push(text); if (!SIM) onLog(text, cls); }
@@ -175,6 +175,7 @@ async function rollTest(p, label, need, o) {
   const pass = r => (r === 6 || (r !== 1 && r >= need) || (r !== 1 && o.rescue && o.rescue(r))) && !(o.spoil && o.spoil(r));
   const shown = Math.max(2, Math.min(6, need));
   let r = d6(); if (o.out) o.out.r = r;
+  await fxD6(p, label, shown, r, pass(r));
   if (pass(r)) { log(`${nm(p)}: ${label} (${shown}+) saca ${r}, éxito`, 't' + p.team); return true; }
   log(`${nm(p)}: ${label} (${shown}+) saca ${r}, falla`, 't' + p.team);
   let again = false;
@@ -183,6 +184,7 @@ async function rollTest(p, label, need, o) {
   if (!again) return false;
   r = d6(); if (o.out) o.out.r = r;
   const ok = pass(r);
+  await fxD6(p, label + ' (repite)', shown, r, ok);
   log(`${nm(p)}: ${label} (${shown}+) repite y saca ${r}, ${ok ? 'éxito' : 'falla'}`, 't' + p.team);
   return ok;
 }
