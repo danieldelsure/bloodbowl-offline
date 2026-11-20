@@ -62,7 +62,7 @@ function rangeBand(ax, ay, bx, by) {
 const P = (pos, sheet, ab, role, cost, max, q, ma, st, ag, pa, av, sk, x) => Object.assign({ pos, sheet, ab, role, cost, max, q, ma, st, ag, pa, av, sk }, x || {});
 const ROSTERS = {
   human: { name: 'Humanos', tier: 2, rrCost: 50, rr: 3, apo: 1, players: [
-    P('Ogro', 'human_ogre', 'Og', 'big', 140, 1, 1, 5, 5, 4, 5, 10, ['Bone Head','Loner (3+)','Mighty Blow','Thick Skull','Throw Team-mate'], { loner: 3, big: true }),
+    P('Ogro', 'human_ogre', 'Og', 'big', 140, 1, 1, 5, 5, 4, 5, 10, ['Bone Head','Loner (4+)','Mighty Blow','Thick Skull','Throw Team-mate'], { loner: 4, big: true }),
     P('Blitzer', 'human_blitzer', 'Bz', 'blitz', 85, 2, 2, 7, 3, 3, 4, 9, ['Block','Tackle']),
     P('Receptor', 'human_catcher', 'Rc', 'wing', 75, 2, 2, 8, 3, 3, 4, 8, ['Catch','Dodge']),
     P('Lanzador', 'human_thrower', 'Lz', 'back', 75, 2, 1, 6, 3, 3, 3, 9, ['Pass','Sure Hands']),
