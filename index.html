@@ -469,6 +469,7 @@ body.mob #cartel #ctStep{padding:4px 6px;margin-top:4px}
 .fxt.ok{background:#1f7a3a;color:#fff}.fxt.ko{background:#a3261c;color:#fff}
 #cartel .ct-sub{margin-top:3px;font-size:12px;color:#7a6a40}
 body.mob #cartel .ct-sub{display:none}
+#bnr .bn.say{--c:#f2b632;border-left-width:12px}
 
 </style>
 </head>
@@ -900,6 +901,7 @@ async function applyInjury(p, bonus, crowd, by) {
   if (has(p, 'Stunty')) kind = r <= 6 ? 'stun' : r <= 8 ? 'ko' : r === 9 ? 'bh' : 'cas';
   else kind = (r <= 7 || (r === 8 && has(p, 'Thick Skull'))) ? 'stun' : r <= 9 ? 'ko' : 'cas';
   await fxD6(p, 'Herida', null, [a, b], null, `Herida · ${r}: ${{ stun: 'aturdido', ko: 'inconsciente', bh: 'baja', cas: 'baja' }[kind]}`);
+  await fxBanner('say', null, { title: kind === 'stun' ? 'Aturdido' : kind === 'ko' ? 'Inconsciente (KO)' : 'Lesión', text: nm(p) + (kind === 'stun' ? (crowd ? ' vuelve a la reserva' : ' queda aturdido') : kind === 'ko' ? ' sale del partido' : ' sale herido'), c: kind === 'stun' ? '#d9a21b' : '#d52b1e', ms: 1000 });
   const head = `Herida de ${nm(p)}: ${a}+${b}${bonus ? '+' + bonus : ''} = ${r}: `;
   if (kind === 'stun') {
     if (crowd) { removeFromPitch(p, 'reserve'); log(head + 'vuelve a la reserva', 't' + p.team); }
@@ -969,6 +971,7 @@ async function knockDown(p, o) {   // devuelve true si el jugador realmente cae
   if (!broke && o.claws && ar >= 8) { broke = true; note = ' (Claws)'; }
   if (!broke && mb && ar + 1 >= p.av) { broke = true; mb = false; note = ' (+1 Mighty Blow)'; }
   log(`${nm(p)} cae. Armadura ${p.av}+: ${a}+${b}${note} ${broke ? 'rota' : 'aguanta'}`, 't' + p.team);
+  if (!broke) await fxBanner('say', null, { title: 'Derribado', text: nm(p), c: G.teams[p.team].color, ms: 750 });
   if (broke) await applyInjury(p, mb ? 1 : 0, false, o.by);
   if (had) { G.ball.carrier = null; G.ball.x = sx; G.ball.y = sy; }
   render(); await sleep(200);
@@ -1788,7 +1791,7 @@ async function drive(kicker, rs) {
     await playTurn(a, lv);
     if (G.td != null) {
       const s = G.td; G.teams[s].score++;
-      log(`¡TOUCHDOWN de ${G.teams[s].name}! (${G.teams[0].score} a ${G.teams[1].score})`, 'good'); flash('¡TOUCHDOWN!'); render(); await sleep(1500);
+      log(`¡TOUCHDOWN de ${G.teams[s].name}! (${G.teams[0].score} a ${G.teams[1].score})`, 'good'); flash('¡TOUCHDOWN!'); render(); await fxBanner('say', null, { title: '¡Touchdown!', text: `${G.teams[s].name} anota (${G.teams[0].score} a ${G.teams[1].score})`, c: G.teams[s].color, ms: 1700 }); await sleep(300);
       if (s !== a && G.turn[s] < TURNS) G.turn[s]++;
       return s;
     }
@@ -2899,6 +2902,10 @@ if (!HEADLESS) (function () {
     if (kind === 'kick') {
       el.innerHTML = `<div class="bn kick"><span class="kn">${x.ev}</span><div>${x.title}<small>Evento de patada. ${x.text}</small></div></div>`;
       el.hidden = false; await fxWait(2300); el.hidden = true; el.innerHTML = ''; return;
+    }
+    if (kind === 'say') {
+      el.innerHTML = `<div class="bn say" style="--c:${x.c || '#f2b632'}"><div>${x.title}<small>${x.text || ''}</small></div></div>`;
+      el.hidden = false; await fxWait(x.ms || 900); el.hidden = true; el.innerHTML = ''; return;
     }
     const ic = to
       ? '<svg viewBox="0 0 52 52"><path d="M26 4 50 46H2Z" fill="#ff4d3d" stroke="#fff" stroke-width="3" stroke-linejoin="round"/><rect x="23.5" y="18" width="5" height="16" rx="2" fill="#fff"/><circle cx="26" cy="40" r="3" fill="#fff"/></svg>'
@@ -4089,6 +4096,10 @@ if (!HEADLESS) (function () {
     tut.state = r; ui.tutHl = null; tut.hlKey = null;
     if (ui.phase === 'turn') { ui.phase = 'idle'; ui.sel = null; ui.moves = new Map(); ui.turnRes = null; refresh(); card(null); }
     if (r === 'won') {
+      (async () => {
+        if (G.td != null) await fxBanner('say', null, { title: '¡Touchdown!', text: G.teams[G.td].name + ' anota', c: G.teams[G.td].color, ms: 1300 });
+        await fxBanner('say', null, { title: '¡Lección superada!', text: tut.L.title, c: '#ffd23f', ms: 1500 });
+      })();
       $('ctStep').innerHTML = `<b class="ct-ok">${G.turnover ? 'Hubo turnover, pero ya viste cómo funciona.' : '¡Muy bien!'}</b> ${tut.L.done}`;
       $('ctNext').hidden = false; $('ctRetry').textContent = 'Repetir';
       msg('<b>Lección completada.</b> Aprieta "Siguiente" en el cartel.');

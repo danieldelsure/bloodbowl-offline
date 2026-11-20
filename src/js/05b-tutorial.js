@@ -102,6 +102,10 @@
     tut.state = r; ui.tutHl = null; tut.hlKey = null;
     if (ui.phase === 'turn') { ui.phase = 'idle'; ui.sel = null; ui.moves = new Map(); ui.turnRes = null; refresh(); card(null); }
     if (r === 'won') {
+      (async () => {
+        if (G.td != null) await fxBanner('say', null, { title: '¡Touchdown!', text: G.teams[G.td].name + ' anota', c: G.teams[G.td].color, ms: 1300 });
+        await fxBanner('say', null, { title: '¡Lección superada!', text: tut.L.title, c: '#ffd23f', ms: 1500 });
+      })();
       $('ctStep').innerHTML = `<b class="ct-ok">${G.turnover ? 'Hubo turnover, pero ya viste cómo funciona.' : '¡Muy bien!'}</b> ${tut.L.done}`;
       $('ctNext').hidden = false; $('ctRetry').textContent = 'Repetir';
       msg('<b>Lección completada.</b> Aprieta "Siguiente" en el cartel.');

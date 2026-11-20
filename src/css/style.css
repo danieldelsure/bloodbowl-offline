@@ -443,3 +443,4 @@ body.mob #cartel #ctStep{padding:4px 6px;margin-top:4px}
 .fxt.ok{background:#1f7a3a;color:#fff}.fxt.ko{background:#a3261c;color:#fff}
 #cartel .ct-sub{margin-top:3px;font-size:12px;color:#7a6a40}
 body.mob #cartel .ct-sub{display:none}
+#bnr .bn.say{--c:#f2b632;border-left-width:12px}

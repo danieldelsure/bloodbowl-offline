@@ -114,6 +114,10 @@ if (!HEADLESS) (function () {
       el.innerHTML = `<div class="bn kick"><span class="kn">${x.ev}</span><div>${x.title}<small>Evento de patada. ${x.text}</small></div></div>`;
       el.hidden = false; await fxWait(2300); el.hidden = true; el.innerHTML = ''; return;
     }
+    if (kind === 'say') {
+      el.innerHTML = `<div class="bn say" style="--c:${x.c || '#f2b632'}"><div>${x.title}<small>${x.text || ''}</small></div></div>`;
+      el.hidden = false; await fxWait(x.ms || 900); el.hidden = true; el.innerHTML = ''; return;
+    }
     const ic = to
       ? '<svg viewBox="0 0 52 52"><path d="M26 4 50 46H2Z" fill="#ff4d3d" stroke="#fff" stroke-width="3" stroke-linejoin="round"/><rect x="23.5" y="18" width="5" height="16" rx="2" fill="#fff"/><circle cx="26" cy="40" r="3" fill="#fff"/></svg>'
       : '<svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="22" fill="none" stroke="currentColor" stroke-width="4"/><path d="M26 12v15l10 6" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>';

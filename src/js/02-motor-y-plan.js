@@ -198,6 +198,7 @@ async function applyInjury(p, bonus, crowd, by) {
   if (has(p, 'Stunty')) kind = r <= 6 ? 'stun' : r <= 8 ? 'ko' : r === 9 ? 'bh' : 'cas';
   else kind = (r <= 7 || (r === 8 && has(p, 'Thick Skull'))) ? 'stun' : r <= 9 ? 'ko' : 'cas';
   await fxD6(p, 'Herida', null, [a, b], null, `Herida · ${r}: ${{ stun: 'aturdido', ko: 'inconsciente', bh: 'baja', cas: 'baja' }[kind]}`);
+  await fxBanner('say', null, { title: kind === 'stun' ? 'Aturdido' : kind === 'ko' ? 'Inconsciente (KO)' : 'Lesión', text: nm(p) + (kind === 'stun' ? (crowd ? ' vuelve a la reserva' : ' queda aturdido') : kind === 'ko' ? ' sale del partido' : ' sale herido'), c: kind === 'stun' ? '#d9a21b' : '#d52b1e', ms: 1000 });
   const head = `Herida de ${nm(p)}: ${a}+${b}${bonus ? '+' + bonus : ''} = ${r}: `;
   if (kind === 'stun') {
     if (crowd) { removeFromPitch(p, 'reserve'); log(head + 'vuelve a la reserva', 't' + p.team); }
@@ -267,6 +268,7 @@ async function knockDown(p, o) {   // devuelve true si el jugador realmente cae
   if (!broke && o.claws && ar >= 8) { broke = true; note = ' (Claws)'; }
   if (!broke && mb && ar + 1 >= p.av) { broke = true; mb = false; note = ' (+1 Mighty Blow)'; }
   log(`${nm(p)} cae. Armadura ${p.av}+: ${a}+${b}${note} ${broke ? 'rota' : 'aguanta'}`, 't' + p.team);
+  if (!broke) await fxBanner('say', null, { title: 'Derribado', text: nm(p), c: G.teams[p.team].color, ms: 750 });
   if (broke) await applyInjury(p, mb ? 1 : 0, false, o.by);
   if (had) { G.ball.carrier = null; G.ball.x = sx; G.ball.y = sy; }
   render(); await sleep(200);
@@ -1086,7 +1088,7 @@ async function drive(kicker, rs) {
     await playTurn(a, lv);
     if (G.td != null) {
       const s = G.td; G.teams[s].score++;
-      log(`¡TOUCHDOWN de ${G.teams[s].name}! (${G.teams[0].score} a ${G.teams[1].score})`, 'good'); flash('¡TOUCHDOWN!'); render(); await sleep(1500);
+      log(`¡TOUCHDOWN de ${G.teams[s].name}! (${G.teams[0].score} a ${G.teams[1].score})`, 'good'); flash('¡TOUCHDOWN!'); render(); await fxBanner('say', null, { title: '¡Touchdown!', text: `${G.teams[s].name} anota (${G.teams[0].score} a ${G.teams[1].score})`, c: G.teams[s].color, ms: 1700 }); await sleep(300);
       if (s !== a && G.turn[s] < TURNS) G.turn[s]++;
       return s;
     }
