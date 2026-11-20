@@ -115,6 +115,7 @@ if (!HEADLESS) (function () {
       el.hidden = false; await fxWait(2300); el.hidden = true; el.innerHTML = ''; return;
     }
     if (kind === 'say') {
+      if (x.tut && curMode !== 'tutorial') return;
       el.innerHTML = `<div class="bn say" style="--c:${x.c || '#f2b632'}"><div>${x.title}<small>${x.text || ''}</small></div></div>`;
       el.hidden = false; await fxWait(x.ms || 900); el.hidden = true; el.innerHTML = ''; return;
     }

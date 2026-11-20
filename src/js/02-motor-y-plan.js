@@ -268,7 +268,7 @@ async function knockDown(p, o) {   // devuelve true si el jugador realmente cae
   if (!broke && o.claws && ar >= 8) { broke = true; note = ' (Claws)'; }
   if (!broke && mb && ar + 1 >= p.av) { broke = true; mb = false; note = ' (+1 Mighty Blow)'; }
   log(`${nm(p)} cae. Armadura ${p.av}+: ${a}+${b}${note} ${broke ? 'rota' : 'aguanta'}`, 't' + p.team);
-  if (!broke) await fxBanner('say', null, { title: 'Derribado', text: nm(p), c: G.teams[p.team].color, ms: 750 });
+  if (!broke) await fxBanner('say', null, { title: 'Derribado', text: nm(p), c: G.teams[p.team].color, ms: 750, tut: true });
   if (broke) await applyInjury(p, mb ? 1 : 0, false, o.by);
   if (had) { G.ball.carrier = null; G.ball.x = sx; G.ball.y = sy; }
   render(); await sleep(200);
