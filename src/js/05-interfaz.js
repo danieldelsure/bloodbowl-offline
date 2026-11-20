@@ -1225,18 +1225,27 @@ if (!HEADLESS) (function () {
     addEventListener('pointerup', go, true);
   })();
   /*@TUTORIAL@*/
+  const pwa = { bip: null, ios: /iphone|ipad|ipod/i.test(navigator.userAgent), standalone: matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone === true };
+  addEventListener('beforeinstallprompt', e => { e.preventDefault(); pwa.bip = e; });
+  addEventListener('appinstalled', () => { pwa.bip = null; pwa.standalone = true; });
+  try { if ('serviceWorker' in navigator && /^https?:/.test(location.protocol)) navigator.serviceWorker.register('sw.js'); } catch (e) { }
   async function start() {
     for (;;) {
       const sv = load();
       const ms = loadMatch();
       const btn = [{ label: 'Aprender a jugar Blood Bowl', value: 'learn', primary: !sv && !ms }, { label: TDC.name, value: 'new' }, { label: 'Partido rápido', value: 'quick' }];
       btn.push({ label: 'Cargar archivo de guardado', value: 'imp' }); if (sv || ms) btn.push({ label: 'Descargar guardado', value: 'exp' });
+      if (!pwa.standalone && (pwa.bip || pwa.ios)) btn.push({ label: 'Instalar app', value: 'inst' });
       if (ms) btn.unshift({ label: `Continuar partida (${ms.desc})`, value: 'cm', primary: true });
       if (sv && sv.round <= TDC.rounds) btn.unshift({ label: `Continuar torneo (ronda ${sv.round}, ${tn(sv.me).name})`, value: 'cont', primary: true });
       const c = await ask(`<img class="pst-img" src="${ASSETS.poster}" alt="Afiche del Torneo de Campeones"><div class="pst-side"><div class="pst-k">BB Chile - El desafío</div><p>Juega contra la IA: revive el ${TDC.name} con uno de sus 16 equipos, o juega un partido suelto.</p><div id="modalBtns2"></div></div>`, btn, false, 'poster');
       if (c === 'cm') {
         if (ms.mode === 'tdc') { const t = load(); if (t) await tournament(t, ms); else { dropMatch(); await ask('<h2>Partida no disponible</h2><p>El torneo de esta partida ya no está guardado.</p>', [{ label: 'Volver al menú', value: 1, primary: true }]); } }
         else await quickMatch(ms);
+      }
+      else if (c === 'inst') {
+        if (pwa.bip) { pwa.bip.prompt(); await pwa.bip.userChoice.catch(() => 0); pwa.bip = null; }
+        else await ask('<h2>Instalar en tu iPhone</h2><p>Aprieta el botón <b>Compartir</b> de Safari y elige <b>Añadir a pantalla de inicio</b>. Se abre a pantalla completa y funciona sin internet.</p>', [{ label: 'Entendido', value: 1, primary: true }]);
       }
       else if (c === 'imp') await importSave();
       else if (c === 'exp') downloadSave();
