@@ -1,6 +1,6 @@
 # BB Chile - El desafío
 
-Juego offline contra la IA para revivir el Torneo de Campeones II (16 equipos reales, primera ronda real y suizo después). El resultado es un solo archivo, `index.html`, que funciona sin internet.
+Juego offline contra la IA para revivir el Torneo de Campeones III (16 equipos reales, primera ronda real y suizo después). El resultado es un solo archivo, `index.html`, que funciona sin internet.
 
 ## Estructura
 
