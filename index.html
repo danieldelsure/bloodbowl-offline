@@ -467,6 +467,8 @@ body.mob #cartel #ctStep{padding:4px 6px;margin-top:4px}
 .fxd.d6.ko{border-color:#a3261c;box-shadow:6px 6px 0 #5a120d99}
 .fxt{position:absolute;white-space:nowrap;font:800 15px var(--body);background:var(--ink);color:var(--bone);padding:3px 10px;border-radius:2px;transition:opacity .15s}
 .fxt.ok{background:#1f7a3a;color:#fff}.fxt.ko{background:#a3261c;color:#fff}
+#cartel .ct-sub{margin-top:3px;font-size:12px;color:#7a6a40}
+body.mob #cartel .ct-sub{display:none}
 
 </style>
 </head>
@@ -4003,12 +4005,14 @@ if (!HEADLESS) (function () {
       setup(o) { o.A = TP(0, 'human_lineman', 4, 4); o.B = TP(0, 'human_lineman', 4, 10); },
       steps: [
         { t: 'Haz clic en tu jugador marcado para seleccionarlo. Mira las casillas verdes: llega hasta 6 casillas.', hl: o => [[o.A.x, o.A.y]], ok: o => ui.sel === o.A || o.A.started },
-        { t: 'Ahora haz clic en la casilla dorada para moverlo.', hl: o => [[9, 4]], ok: o => at(o.A, 9, 4) },
-        { t: '<b>Esprintar.</b> Este jugador tiene MA 6, pero la meta está a 7 casillas. Puede esprintar: 2 casillas extra por activación, y cada una pide un dado. Con 2+ sale bien; con un 1 se cae y <b>termina tu turno</b>. Las casillas amarillas son las que piden dado. Llévalo a la casilla dorada.', hl: o => [[11, 10]], ok: o => at(o.B, 11, 10) }],
+        { t: 'Ahora haz clic en la casilla dorada para moverlo (5 casillas). Puedes ir de a poco, pero en total no más de 6.', hl: o => [[9, 4]], ok: o => o.A.x >= 9 },
+        { t: '<b>Esprintar.</b> Este jugador tiene MA 6, pero la meta está a 7 casillas. Puede esprintar: 2 casillas extra por activación, y cada una pide un dado. Con 2+ sale bien; con un 1 se cae y <b>termina tu turno</b>. Las casillas amarillas son las que piden dado. Llévalo a la casilla dorada (si ya lo moviste antes, aprieta Reiniciar).', hl: o => [[11, 10]], ok: o => o.B.x >= 11 && o.B.y === 10 }],
+      stuck: o => o.B.started && o.B.x < 11 && o.B.maLeft + 2 - o.B.rushes < 11 - o.B.x,
       done: 'Mover es gratis mientras no salgas de tu MA. Cada casilla extra es un riesgo: esprinta solo cuando valga la pena.' },
     { title: 'Recoger el balón y anotar',
       intro: 'Se anota llevando el balón hasta la <b>última columna</b> del rival (la de la derecha). Al entrar a la casilla del balón se intenta recogerlo con una <b>prueba de Agilidad (AG)</b>.',
       rr: 1,
+      stuck: o => o.R.started && o.R.state === 'standing' && o.R.maLeft + 2 - o.R.rushes < 25 - o.R.x,
       setup(o) { o.R = TP(0, 'human_catcher', 17, 7); looseBall(18, 7); },
       steps: [
         { t: 'Mueve a tu Receptor hasta el balón (casilla dorada). Necesita 3+ para recogerlo. Si falla, el juego te ofrece usar un <b>reroll de equipo</b> (tienes 1).', hl: () => [[18, 7]], ok: o => G.ball.carrier === o.R },
@@ -4074,7 +4078,9 @@ if (!HEADLESS) (function () {
     const cur = st.findIndex(x => !x.ok);
     if (cur === -1) { tutEnd('won'); return; }
     if (ui.phase !== 'turn') { tutEnd('lost'); return; }
-    $('ctStep').innerHTML = `<b>Paso ${cur + 1} de ${st.length}.</b> ${L.steps[cur].t}`;
+    if (L.stuck && L.stuck(tut.o)) { tutEnd('stuck'); return; }
+    if (G.teams[0].players.every(q => q.loc !== 'pitch' || q.used)) { tutEnd('stuck'); return; }
+    $('ctStep').innerHTML = `<b>Paso ${cur + 1} de ${st.length}.</b> ${L.steps[cur].t}<div class="ct-sub">¿Te trabaste? Aprieta Reiniciar.</div>`;
     const hl = L.steps[cur].hl(tut.o);
     const key = JSON.stringify(hl);
     if (tut.hlKey !== key) { tut.hlKey = key; ui.tutHl = hl; draw(); }
@@ -4086,6 +4092,10 @@ if (!HEADLESS) (function () {
       $('ctStep').innerHTML = `<b class="ct-ok">${G.turnover ? 'Hubo turnover, pero ya viste cómo funciona.' : '¡Muy bien!'}</b> ${tut.L.done}`;
       $('ctNext').hidden = false; $('ctRetry').textContent = 'Repetir';
       msg('<b>Lección completada.</b> Aprieta "Siguiente" en el cartel.');
+    } else if (r === 'stuck') {
+      $('ctStep').innerHTML = '<b class="ct-bad">Te quedaste sin movimiento para llegar.</b> Cada jugador tiene un máximo por turno (MA, más 2 de esprint). Aprieta <b>Reintentar</b> y avanza de una vez, sin dar pasos de más.';
+      $('ctNext').hidden = true; $('ctRetry').textContent = 'Reintentar';
+      msg('<b>Sin movimiento.</b> Aprieta "Reintentar" en el cartel.');
     } else {
       $('ctStep').innerHTML = '<b class="ct-bad">Se terminó tu turno sin lograr el objetivo.</b> En Blood Bowl, caerse o fallar una tirada importante es un <b>turnover</b> y el turno termina. Reintenta.';
       $('ctNext').hidden = true; $('ctRetry').textContent = 'Reintentar';
