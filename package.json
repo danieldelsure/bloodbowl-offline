@@ -1,0 +1,13 @@
+{
+  "name": "bloodbowl-offline",
+  "version": "1.0.0",
+  "description": "Blood Bowl offline game - Torneo de Campeones III",
+  "private": true,
+  "scripts": {
+    "build": "python build.py"
+  },
+  "dependencies": {
+    "@vercel/analytics": "^1.4.1"
+  },
+  "devDependencies": {}
+}
