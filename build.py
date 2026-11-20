@@ -15,6 +15,10 @@ js = js.replace('/*@TUTORIAL@*/', tutjs)
 s = rd('index.html').replace('/*STYLE*/', rd('css', 'style.css')).replace('/*SCRIPT*/', js.rstrip('\n'))
 assert '/*ASSETS*/' in s and '/*TOURNEY*/' in s
 s = s.replace('/*ASSETS*/', rd('data', 'assets.js')).replace('/*FONTS*/', rd('data', 'fonts.css')).replace('/*TOURNEY*/', rd('data', 'tourney.js'))
+import hashlib
+bid = hashlib.sha1(s.encode('utf8')).hexdigest()[:10]   # identificador de esta versión; la página lo compara con version.json para ofrecer "Actualizar"
+s = s.replace('/*BUILDID*/', bid)
 out = os.path.join(root, 'index.html')
 open(out, 'w', encoding='utf8').write(s)
+open(os.path.join(root, 'version.json'), 'w').write('{"id":"%s"}' % bid)
 print('build ok', len(s))
