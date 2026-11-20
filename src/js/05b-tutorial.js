@@ -15,12 +15,12 @@
   const LESSONS = [
     { title: 'Moverte y esprintar',
       intro: 'Tú eres el equipo azul y juegas hacia la derecha. Cada jugador tiene un valor de <b>Movimiento (MA)</b>: cuántas casillas puede avanzar en su activación. Las casillas <b>verdes</b> se alcanzan sin tirar dados.',
-      setup(o) { o.A = TP(0, 'human_lineman', 4, 4); o.B = TP(0, 'human_lineman', 4, 10); },
+      setup(o) { o.A = TP(0, 'human_lineman', 4, 7); },
       steps: [
-        { t: 'Haz clic en tu jugador marcado para seleccionarlo. Mira las casillas verdes: llega hasta 6 casillas.', hl: o => [[o.A.x, o.A.y]], ok: o => ui.sel === o.A || o.A.started },
-        { t: 'Ahora haz clic en la casilla dorada para moverlo (5 casillas). Puedes ir de a poco, pero en total no más de 6.', hl: o => [[9, 4]], ok: o => o.A.x >= 9 },
-        { t: '<b>Esprintar.</b> Este jugador tiene MA 6, pero la meta está a 7 casillas. Puede esprintar: 2 casillas extra por activación, y cada una pide un dado. Con 2+ sale bien; con un 1 se cae y <b>termina tu turno</b>. Las casillas amarillas son las que piden dado. Llévalo a la casilla dorada (si ya lo moviste antes, aprieta Reiniciar).', hl: o => [[11, 10]], ok: o => o.B.x >= 11 && o.B.y === 10 }],
-      stuck: o => o.B.started && o.B.x < 11 && o.B.maLeft + 2 - o.B.rushes < 11 - o.B.x,
+        { t: 'Haz clic en tu jugador marcado para seleccionarlo. Mira las casillas verdes: llega hasta 6 casillas, su MA.', hl: o => [[o.A.x, o.A.y]], ok: o => ui.sel === o.A || o.A.started },
+        { t: 'Haz clic en la última casilla dorada: son las 6 casillas de su Movimiento (MA 6), sin tirar dados.', hl: () => [[5, 7], [6, 7], [7, 7], [8, 7], [9, 7], [10, 7]], ok: o => o.A.x >= 10 },
+        { t: '<b>Esprintar.</b> Ya gastó todo su MA, pero aún puede esprintar: 2 casillas extra por activación, y cada una pide un dado. Con 2+ sale bien; con un 1 se cae y <b>termina tu turno</b>. Son las casillas amarillas. Haz clic en la segunda casilla dorada (confirma el riesgo).', hl: () => [[11, 7], [12, 7]], ok: o => o.A.x >= 12 }],
+      stuck: o => o.A.started && o.A.x < 12 && o.A.maLeft + 2 - o.A.rushes < 12 - o.A.x,
       done: 'Mover es gratis mientras no salgas de tu MA. Cada casilla extra es un riesgo: esprinta solo cuando valga la pena.' },
     { title: 'Recoger el balón y anotar',
       intro: 'Se anota llevando el balón hasta la <b>última columna</b> del rival (la de la derecha). Al entrar a la casilla del balón se intenta recogerlo con una <b>prueba de Agilidad (AG)</b>.',
