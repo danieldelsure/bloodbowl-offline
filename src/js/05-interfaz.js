@@ -269,8 +269,10 @@ if (!HEADLESS) (function () {
   })();
   /* zoom de la cancha en celular: botones, pellizco y arrastre con un dedo */
   let zoom = 1; const ZMAX = 3.2;
+  function hideTip() { const t = $('mtip'); if (t) t.classList.remove('on'); clearTimeout(tipT); }
   function setZoom(z, fx, fy) {
     const bf = $('bframe'), nz = Math.min(ZMAX, Math.max(1, z)); if (nz === zoom) return;
+    hideTip();
     const px = fx == null ? 0.5 : fx, py = fy == null ? 0.5 : fy;
     const cx = (bf.scrollLeft + bf.clientWidth * px) / (bf.scrollWidth || 1), cy = (bf.scrollTop + bf.clientHeight * py) / (bf.scrollHeight || 1);
     zoom = nz; resize();
@@ -291,6 +293,7 @@ if (!HEADLESS) (function () {
     const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
     bf.addEventListener('touchstart', e => { if (e.touches.length === 2 && document.body.classList.contains('mob')) pin = { d: dist(e.touches), z: zoom }; }, { passive: true });
     bf.addEventListener('touchmove', e => {
+      hideTip();
       if (!pin || e.touches.length !== 2) return; e.preventDefault();
       const r = bf.getBoundingClientRect(), fx = ((e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left) / r.width, fy = ((e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top) / r.height, nz = pin.z * dist(e.touches) / pin.d;
       if (!raf) raf = requestAnimationFrame(() => { raf = 0; setZoom(nz, fx, fy); });
@@ -409,7 +412,7 @@ if (!HEADLESS) (function () {
     const t = G.teams[p.team], mine = p.team === HT;
     el.style.setProperty('--tc', t.color || (mine ? 'var(--blue)' : 'var(--acc)'));
     el.innerHTML = `<b class="who">${mine ? 'TU EQUIPO' : 'RIVAL'}</b><b class="tn">${t.name}</b><span class="pl">${nm(p)}${p.pos !== p.name ? ' · ' + p.pos : ''}</span><span class="ss">MA${p.ma} ST${p.st} AG${p.ag}+ AV${p.av}+</span><span class="sk">${p.skList.join(', ')}</span>`;
-    el.classList.add('on'); clearTimeout(tipT); tipT = setTimeout(() => el.classList.remove('on'), 5000);
+    el.classList.add('on'); clearTimeout(tipT); tipT = setTimeout(() => el.classList.remove('on'), 2500);
   }
   function card(p, extra) { renderCard($('cardR'), p, extra, 'Pasa el cursor sobre un jugador, en la cancha o en las reservas.'); mobTip(p); }
   function showSel(extra) { renderCard($('cardL'), ui.sel, extra, 'Haz clic en uno de tus jugadores.'); }

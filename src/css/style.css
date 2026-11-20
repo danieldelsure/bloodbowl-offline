@@ -300,7 +300,7 @@
 
 body.mob #boardWrap{position:relative}
 #mtip{display:none}
-body.mob #mtip{display:flex;position:absolute;left:10px;bottom:8px;z-index:30;max-width:calc(100% - 232px);flex-wrap:wrap;align-items:center;gap:2px 8px;padding:5px 10px;background:#101216ee;border-left:6px solid var(--tc);color:var(--bone);font:600 12px/1.25 var(--body);pointer-events:none;opacity:0;transition:opacity .2s}
+body.mob #mtip{display:flex;position:absolute;left:10px;bottom:8px;z-index:30;max-width:calc(100% - 232px);flex-wrap:wrap;align-items:center;gap:2px 8px;padding:5px 10px;background:#101216c4;border-left:6px solid var(--tc);color:var(--bone);font:600 12px/1.25 var(--body);pointer-events:none;opacity:0;transition:opacity .2s}
 body.mob #mtip.on{opacity:1}
 body.mob #mtip .who{font:900 13px var(--disp);letter-spacing:.06em;color:var(--tc);filter:brightness(1.5)}
 body.mob #mtip .tn{font:900 15px var(--disp);text-transform:uppercase}
