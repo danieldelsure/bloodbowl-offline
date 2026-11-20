@@ -980,7 +980,7 @@ async function kickoffEvent(kicker, land) {
   } else if (ev === 8) {
     head('Cambio de clima'); rollWeather();
     if (wx('nice')) { log('Con clima perfecto el balón se dispersa 3 casillas en el aire'); for (let i = 0; i < 3; i++) { const [dx, dy] = DIRS[d(8) - 1]; land[0] += dx; land[1] += dy; } }
-  } else if (ev === 9) { const n = d3() + 3; head(`¡Saque rápido! ${R.name} puede mover una casilla hasta ${n} jugadores libres`); await R.ctrl.quickSnap(n); }
+  } else if (ev === 9) { const n = d3() + 3; head(`¡Saque rápido! ${R.name} puede mover una casilla hasta ${n} jugadores libres`); await R.ctrl.quickSnap(n, land); }
   else if (ev === 10) { const n = d3() + 3; head(`¡Carga! ${K.name} activa hasta ${n} jugadores libres: movimiento gratis, y uno puede hacer blitz`); await charge(kicker, n); }
   else if (ev === 11) {
     head('Colación sospechosa');
