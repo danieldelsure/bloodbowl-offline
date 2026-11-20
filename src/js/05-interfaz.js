@@ -304,6 +304,7 @@ if (!HEADLESS) (function () {
       }
     }
     if (ui.hl && ui.hl.squares) for (const [x, y] of ui.hl.squares) { ctx.fillStyle = ui.hl.color; ctx.fillRect(x * S + 2, y * S + 2, S - 4, S - 4); }
+    if (ui.tutHl) for (const [x, y] of ui.tutHl) { ctx.fillStyle = '#ffd23f40'; ctx.fillRect(x * S + 2, y * S + 2, S - 4, S - 4); ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 4; ctx.strokeRect(x * S + 3, y * S + 3, S - 6, S - 6); }
     if (ui.hl && ui.hl.mark && inPitch(ui.hl.mark[0], ui.hl.mark[1])) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.strokeRect(ui.hl.mark[0] * S + 2, ui.hl.mark[1] * S + 2, S - 4, S - 4); }
     if (ui.hover && ui.phase === 'turn' && ui.sel) {
       const n = ui.moves.get(idx(ui.hover[0], ui.hover[1]));
@@ -845,7 +846,7 @@ if (!HEADLESS) (function () {
   function storeMatch(snap, live) {
     try { localStorage.setItem(MSAVE, JSON.stringify({ v: 1, mode: curMode, k: snap.k, a: snap.a, live: !!live, str: snap.str, ulog, desc: snap.desc || matchDesc(), t: Date.now() })); return true; } catch (e) { return false; }
   }
-  snapHook = (k, a) => { if (SIM || !G || !(G.mgr || G.teams[0].ctrl instanceof Human)) return; lastSnap = { k, a, str: snapG(), desc: matchDesc() }; storeMatch(lastSnap, false); hist.push({ str: lastSnap.str, score: G.teams[0].score + ' a ' + G.teams[1].score, label: k === 'drive' ? `Mitad ${G.half} · formación de una nueva entrada` : `Mitad ${G.half} · turno ${G.turn[a] + 1} de ${G.teams[a].name}` }); if (hist.length > 60) hist.shift(); };
+  snapHook = (k, a) => { if (curMode === 'tutorial' || SIM || !G || !(G.mgr || G.teams[0].ctrl instanceof Human)) return; lastSnap = { k, a, str: snapG(), desc: matchDesc() }; storeMatch(lastSnap, false); hist.push({ str: lastSnap.str, score: G.teams[0].score + ' a ' + G.teams[1].score, label: k === 'drive' ? `Mitad ${G.half} · formación de una nueva entrada` : `Mitad ${G.half} · turno ${G.turn[a] + 1} de ${G.teams[a].name}` }); if (hist.length > 60) hist.shift(); };
 
 
   /* ----- alineación: elegir quién entra a la cancha ----- */
@@ -1049,11 +1050,11 @@ if (!HEADLESS) (function () {
       place();
     });
   }
-  async function playMatch(a, b, rs, mgr) {
+  async function playMatch(a, b, rs, mgr, soft) {
     hist = [];
-    if (rs) { restoreG(rs.str); ulog = (rs.ulog || []).slice(); } else { newGame(a, b); ulog = []; G.mgr = !!mgr; }
+    if (rs) { restoreG(rs.str); ulog = (rs.ulog || []).slice(); } else { newGame(a, b); ulog = []; G.mgr = !!mgr; if (soft) G.oneHalf = true; }
     if (G.mgr && !G.teams[0].plan) G.teams[0].plan = loadPlan();
-    G.teams[0].ctrl = G.mgr ? new AI2(0) : new Human(0); G.teams[1].ctrl = new AI2(1);
+    G.teams[0].ctrl = G.mgr ? new AI2(0) : new Human(0); G.teams[1].ctrl = soft ? new AI(1) : new AI2(1);
     ui.phase = 'idle'; ui.sel = null; ui.busy = false; ui.pick = null; ui.moves = new Map(); ui.mode = 'move'; ui.hl = null;
     $('log').innerHTML = ''; for (const [t, c] of ulog) addLog(t, c);
     dugSig = ['', '']; card(null); resize(); refresh();
@@ -1169,11 +1170,12 @@ if (!HEADLESS) (function () {
       [{ label: 'Volver al menú', value: 1, primary: true }], true);
     save(null);
   }
+  /*@TUTORIAL@*/
   async function start() {
     for (;;) {
       const sv = load();
       const ms = loadMatch();
-      const btn = [{ label: TDC.name, value: 'new', primary: !sv && !ms }, { label: 'Partido rápido', value: 'quick' }];
+      const btn = [{ label: 'Aprender a jugar Blood Bowl', value: 'learn', primary: !sv && !ms }, { label: TDC.name, value: 'new' }, { label: 'Partido rápido', value: 'quick' }];
       btn.push({ label: 'Cargar archivo de guardado', value: 'imp' }); if (sv || ms) btn.push({ label: 'Descargar guardado', value: 'exp' });
       if (ms) btn.unshift({ label: `Continuar partida (${ms.desc})`, value: 'cm', primary: true });
       if (sv && sv.round <= TDC.rounds) btn.unshift({ label: `Continuar torneo (ronda ${sv.round}, ${tn(sv.me).name})`, value: 'cont', primary: true });
@@ -1184,6 +1186,7 @@ if (!HEADLESS) (function () {
       }
       else if (c === 'imp') await importSave();
       else if (c === 'exp') downloadSave();
+      else if (c === 'learn') await tutorialCourse();
       else if (c === 'quick') await quickMatch();
       else if (c === 'cont') await tournament(sv);
       else { if (sv && !(await ask('<h2>Torneo en curso</h2><p>Ya tienes un torneo guardado. Si empiezas uno nuevo se pierde.</p>', [{ label: 'Empezar uno nuevo', value: 1, primary: true }, { label: 'Volver', value: 0 }]))) continue; const st = await newTournament(); if (st) await tournament(st); }

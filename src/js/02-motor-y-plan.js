@@ -1112,7 +1112,7 @@ async function runMatch(rs) {
     log(`Sorteo: patea ${G.teams[G.kicker].name}, recibe ${G.teams[1 - G.kicker].name}`, 'hd');
   }
   const first = G.first; let kicker = G.kicker, resumed = !!rs;
-  for (G.half = rs ? G.half : 1; G.half <= 2; G.half++) {
+  for (G.half = rs ? G.half : 1; G.half <= (G.oneHalf ? 1 : 2); G.half++) {
     if (!resumed) {
       G.turn = [0, 0]; G.halfStart = true; G.teams.forEach(t => { t.rerolls = t.rrMax; t.bonusRR = 0; t.rrUsed = 0; t.leaderRR = false; });
       if (G.half === 2) { kicker = 1 - first; log('Comienza la segunda mitad', 'hd'); }
