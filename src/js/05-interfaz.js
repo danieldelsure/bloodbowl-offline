@@ -31,7 +31,7 @@ if (!HEADLESS) (function () {
     return { cx: r.left - wr.left + (x + .5) * S * k, cy: r.top - wr.top + (y + .5) * S * k, sz: S * k, l: r.left - wr.left, w: r.width };
   }
   const fxWait = ms => new Promise(r => setTimeout(r, ms));
-  fxRoll = async (att, def, dice) => {
+  fxRoll = async (att, def, dice, attChooses = true) => {
     if (SIM) return;
     const box = $('dfx'); box.innerHTML = ''; box.hidden = false;
     const a = cellBox(att.x, att.y), d = cellBox(def.x, def.y);
@@ -41,7 +41,7 @@ if (!HEADLESS) (function () {
     const tx = Math.max(d.l + tw / 2 + 4, Math.min(d.l + d.w - tw / 2 - 4, d.cx));
     const els = [], anims = [];
     dice.forEach((f, i) => {
-      const el = document.createElement('div'); el.className = 'fxd'; el.style.cssText = `width:${ds}px;height:${ds}px;left:${tx - tw / 2 + i * (ds + gap)}px;top:${ty - ds / 2}px`;
+      const el = document.createElement('div'); el.className = 'fxd' + (attChooses ? '' : ' rv'); el.style.cssText = `width:${ds}px;height:${ds}px;left:${tx - tw / 2 + i * (ds + gap)}px;top:${ty - ds / 2}px`;
       const im = document.createElement('img'); im.src = ASSETS['d_' + FXF[Math.floor(Math.random() * 5)]]; el.appendChild(im); box.appendChild(el); els.push(el);
       const cx = tx - tw / 2 + i * (ds + gap) + ds / 2, sx = a.cx - cx, sy = a.cy - ty, rot = (Math.random() < .5 ? -1 : 1) * 360 * (2 + Math.floor(Math.random() * 2)), dur = 760 + i * 110;
       anims.push(el.animate([

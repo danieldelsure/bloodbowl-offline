@@ -398,3 +398,6 @@ body.mob #wxtip{width:min(280px,calc(100vw - 16px))} body.mob #wxtip p{font-size
 .dfxbar button{white-space:nowrap}
 
 .dfxbar button{background:var(--ink);color:var(--bone)} .dfxbar button.primary{background:var(--acc);color:#fff8e6}
+
+/* dados que elige el rival: fondo rojo oscuro */
+.fxd.rv{background:#a3261c;border-color:#3a0d09}

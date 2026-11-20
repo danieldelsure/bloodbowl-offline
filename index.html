@@ -423,6 +423,9 @@ body.mob #wxtip{width:min(280px,calc(100vw - 16px))} body.mob #wxtip p{font-size
 
 .dfxbar button{background:var(--ink);color:var(--bone)} .dfxbar button.primary{background:var(--acc);color:#fff8e6}
 
+/* dados que elige el rival: fondo rojo oscuro */
+.fxd.rv{background:#a3261c;border-color:#3a0d09}
+
 </style>
 </head>
 <body>
@@ -1258,20 +1261,20 @@ async function block(att, def, follow, o) {
   let dice = roll();
   log(`${nm(att)} bloquea a ${nm(def)} (fuerza ${info.a} vs ${info.b}): ${info.n} dado${info.n > 1 ? 's' : ''}${info.attChooses ? '' : ', elige el defensor'}: ${show(dice)}`, 't' + att.team);
   if (info.gOff.length || info.gDef.length) log(`Guard: ${[...info.gOff.map(n => n + ' asiste a ' + nm(att)), ...info.gDef.map(n => n + ' asiste a ' + nm(def))].join(', ')} aunque estén marcados`, 'good');
-  await fxRoll(att, def, dice);
+  await fxRoll(att, def, dice, info.attChooses);
   let fresh = true;
   if (has(att, 'Hatred') && def.kw === 'troll' && dice.includes('skull')) {
     dice[dice.indexOf('skull')] = FACES[d6() - 1]; fresh = false;
-    log(`${nm(att)} repite un "Atacante cae" por Hatred: ${show(dice)}`, 't' + att.team); await fxRoll(att, def, dice);
+    log(`${nm(att)} repite un "Atacante cae" por Hatred: ${show(dice)}`, 't' + att.team); await fxRoll(att, def, dice, info.attChooses);
   }
   if (fresh && !blitz && has(att, 'Brawler') && !has(att, 'Block') && dice.includes('both')) {
     dice[dice.indexOf('both')] = FACES[d6() - 1]; fresh = false;
-    log(`${nm(att)} repite un "Ambos caen" por Brawler: ${show(dice)}`, 't' + att.team); await fxRoll(att, def, dice);
+    log(`${nm(att)} repite un "Ambos caen" por Brawler: ${show(dice)}`, 't' + att.team); await fxRoll(att, def, dice, info.attChooses);
   }
   let canRR = fresh && G.phase === 'turn' && G.active === att.team && rrLeft(t) > 0;
   let dec = await actl.blockDecision(dice, att, def, info.attChooses, canRR);
   if (dec === 'reroll' && canRR) {
-    if (spendReroll(att)) { dice = roll(); log(`Nueva tirada: ${show(dice)}`, 't' + att.team); await fxRoll(att, def, dice); }
+    if (spendReroll(att)) { dice = roll(); log(`Nueva tirada: ${show(dice)}`, 't' + att.team); await fxRoll(att, def, dice, info.attChooses); }
     dec = await actl.blockDecision(dice, att, def, info.attChooses, false);
   }
   const i = info.attChooses ? (dec | 0) : await dctl.chooseDefDie(dice, att, def);
@@ -2757,7 +2760,7 @@ if (!HEADLESS) (function () {
     return { cx: r.left - wr.left + (x + .5) * S * k, cy: r.top - wr.top + (y + .5) * S * k, sz: S * k, l: r.left - wr.left, w: r.width };
   }
   const fxWait = ms => new Promise(r => setTimeout(r, ms));
-  fxRoll = async (att, def, dice) => {
+  fxRoll = async (att, def, dice, attChooses = true) => {
     if (SIM) return;
     const box = $('dfx'); box.innerHTML = ''; box.hidden = false;
     const a = cellBox(att.x, att.y), d = cellBox(def.x, def.y);
@@ -2767,7 +2770,7 @@ if (!HEADLESS) (function () {
     const tx = Math.max(d.l + tw / 2 + 4, Math.min(d.l + d.w - tw / 2 - 4, d.cx));
     const els = [], anims = [];
     dice.forEach((f, i) => {
-      const el = document.createElement('div'); el.className = 'fxd'; el.style.cssText = `width:${ds}px;height:${ds}px;left:${tx - tw / 2 + i * (ds + gap)}px;top:${ty - ds / 2}px`;
+      const el = document.createElement('div'); el.className = 'fxd' + (attChooses ? '' : ' rv'); el.style.cssText = `width:${ds}px;height:${ds}px;left:${tx - tw / 2 + i * (ds + gap)}px;top:${ty - ds / 2}px`;
       const im = document.createElement('img'); im.src = ASSETS['d_' + FXF[Math.floor(Math.random() * 5)]]; el.appendChild(im); box.appendChild(el); els.push(el);
       const cx = tx - tw / 2 + i * (ds + gap) + ds / 2, sx = a.cx - cx, sy = a.cy - ty, rot = (Math.random() < .5 ? -1 : 1) * 360 * (2 + Math.floor(Math.random() * 2)), dur = 760 + i * 110;
       anims.push(el.animate([

@@ -609,20 +609,20 @@ async function block(att, def, follow, o) {
   let dice = roll();
   log(`${nm(att)} bloquea a ${nm(def)} (fuerza ${info.a} vs ${info.b}): ${info.n} dado${info.n > 1 ? 's' : ''}${info.attChooses ? '' : ', elige el defensor'}: ${show(dice)}`, 't' + att.team);
   if (info.gOff.length || info.gDef.length) log(`Guard: ${[...info.gOff.map(n => n + ' asiste a ' + nm(att)), ...info.gDef.map(n => n + ' asiste a ' + nm(def))].join(', ')} aunque estén marcados`, 'good');
-  await fxRoll(att, def, dice);
+  await fxRoll(att, def, dice, info.attChooses);
   let fresh = true;
   if (has(att, 'Hatred') && def.kw === 'troll' && dice.includes('skull')) {
     dice[dice.indexOf('skull')] = FACES[d6() - 1]; fresh = false;
-    log(`${nm(att)} repite un "Atacante cae" por Hatred: ${show(dice)}`, 't' + att.team); await fxRoll(att, def, dice);
+    log(`${nm(att)} repite un "Atacante cae" por Hatred: ${show(dice)}`, 't' + att.team); await fxRoll(att, def, dice, info.attChooses);
   }
   if (fresh && !blitz && has(att, 'Brawler') && !has(att, 'Block') && dice.includes('both')) {
     dice[dice.indexOf('both')] = FACES[d6() - 1]; fresh = false;
-    log(`${nm(att)} repite un "Ambos caen" por Brawler: ${show(dice)}`, 't' + att.team); await fxRoll(att, def, dice);
+    log(`${nm(att)} repite un "Ambos caen" por Brawler: ${show(dice)}`, 't' + att.team); await fxRoll(att, def, dice, info.attChooses);
   }
   let canRR = fresh && G.phase === 'turn' && G.active === att.team && rrLeft(t) > 0;
   let dec = await actl.blockDecision(dice, att, def, info.attChooses, canRR);
   if (dec === 'reroll' && canRR) {
-    if (spendReroll(att)) { dice = roll(); log(`Nueva tirada: ${show(dice)}`, 't' + att.team); await fxRoll(att, def, dice); }
+    if (spendReroll(att)) { dice = roll(); log(`Nueva tirada: ${show(dice)}`, 't' + att.team); await fxRoll(att, def, dice, info.attChooses); }
     dec = await actl.blockDecision(dice, att, def, info.attChooses, false);
   }
   const i = info.attChooses ? (dec | 0) : await dctl.chooseDefDie(dice, att, def);
