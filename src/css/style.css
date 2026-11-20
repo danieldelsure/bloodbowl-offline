@@ -383,3 +383,18 @@ body.mob #hd1{padding-left:30px;padding-right:calc(max(12px,env(safe-area-inset-
 body.mob .team .nm{padding-top:2px}
 body.mob #boardWrap{padding-left:max(6px,env(safe-area-inset-left,0px));padding-right:max(6px,env(safe-area-inset-right,0px));padding-bottom:max(6px,env(safe-area-inset-bottom,0px))}
 body.mob #zctl{left:calc(max(6px,env(safe-area-inset-left,0px)) + 8px);bottom:calc(max(6px,env(safe-area-inset-bottom,0px)) + 8px)}
+
+#clock{cursor:pointer}
+#clock .wxi{display:inline-flex;vertical-align:-4px;margin:0 1px 0 0}
+#wxtip{position:fixed;z-index:40;display:flex;gap:10px;align-items:flex-start;width:min(320px,calc(100vw - 16px));padding:10px 12px;background:var(--bone);color:var(--ink);border-left:8px solid currentColor;box-shadow:6px 6px 0 #0006}
+#wxtip .wxbig{font-size:30px;line-height:1;flex:none}
+#wxtip b{font:900 20px/1 var(--disp);text-transform:uppercase;color:var(--ink)}
+#wxtip p{margin:3px 0 0;font:500 13px/1.35 var(--body);color:var(--ink)}
+body.mob #wxtip{width:min(280px,calc(100vw - 16px))} body.mob #wxtip p{font-size:12px}
+
+.fxd.pk{pointer-events:auto;cursor:pointer;outline:3px solid var(--mus);outline-offset:2px}
+.fxd.pk:hover{scale:1.12;outline-color:var(--acc)}
+.dfxbar{position:absolute;display:flex;gap:8px;justify-content:center;pointer-events:auto;z-index:3}
+.dfxbar button{white-space:nowrap}
+
+.dfxbar button{background:var(--ink);color:var(--bone)} .dfxbar button.primary{background:var(--acc);color:#fff8e6}

@@ -37,6 +37,7 @@ if (!HEADLESS) (function () {
     const a = cellBox(att.x, att.y), d = cellBox(def.x, def.y);
     const ds = Math.max(40, Math.min(64, d.sz * 1.1)), gap = 8, tw = dice.length * ds + (dice.length - 1) * gap;
     const ty = def.y < 2 ? d.cy + d.sz * 1.2 : d.cy - d.sz * 1.2;
+    box.dataset.above = def.y < 2 ? '0' : '1';
     const tx = Math.max(d.l + tw / 2 + 4, Math.min(d.l + d.w - tw / 2 - 4, d.cx));
     const els = [], anims = [];
     dice.forEach((f, i) => {
@@ -53,6 +54,25 @@ if (!HEADLESS) (function () {
     await Promise.all(anims.map(x => x.finished.catch(() => 0)));
     await fxWait(450);
   };
+  /* PC: se elige el dado haciendo clic directo en los dados de la cancha (en celular se mantiene la ventana) */
+  function inlineDice(n, text, pickable, buttons) {
+    const box = $('dfx'), kids = [...box.children];
+    if (SIM || document.body.classList.contains('mob') || box.hidden || kids.length !== n || reviewing) return null;
+    return new Promise(res => {
+      msg(text);
+      let bar = null;
+      const done = v => { if (bar) bar.remove(); kids.forEach(k => { k.classList.remove('pk'); k.onclick = null; }); res(v); };
+      if (pickable) kids.forEach((el, i) => { el.classList.add('pk'); el.onclick = () => done(i); });
+      if (buttons && buttons.length) {
+        bar = document.createElement('div'); bar.className = 'dfxbar';
+        for (const b of buttons) { const el = document.createElement('button'); el.textContent = b.label; if (b.primary) el.className = 'primary'; el.onclick = () => done(b.value); bar.appendChild(el); }
+        box.appendChild(bar);
+        const f = kids[0], l = kids[n - 1], above = box.dataset.above === '1';
+        bar.style.left = f.offsetLeft + 'px'; bar.style.width = (l.offsetLeft + l.offsetWidth - f.offsetLeft) + 'px';
+        bar.style.top = (above ? f.offsetTop - bar.offsetHeight - 8 : f.offsetTop + f.offsetHeight + 8) + 'px';
+      }
+    });
+  }
   fxPick = async i => {
     if (SIM) return;
     const box = $('dfx'); [...box.children].forEach((el, k) => el.classList.add(k === i ? 'pick' : 'dim'));
@@ -124,16 +144,20 @@ if (!HEADLESS) (function () {
     async blockDecision(dice, att, def, attChooses, canRR) {
       const head = `<h2>${nm(att)} bloquea a ${nm(def)}</h2>`;
       const rr = canRR ? [{ label: `Repetir con reroll (quedan ${rrLeft(G.teams[this.t])})`, value: 'reroll' }] : [];
+      const who = `<b>${nm(att)} bloquea a ${nm(def)}.</b> `;
       if (attChooses) {
         if (dice.length === 1 && !canRR) return 0;
-        if (dice.length === 1) return ask(head + diceHtml(dice, false), [{ label: 'Aceptar', value: 0, primary: true }, ...rr]);
+        if (dice.length === 1) { const r = inlineDice(1, who + 'Un solo dado: acéptalo o repite con reroll.', false, [{ label: 'Aceptar', value: 0, primary: true }, ...rr]); if (r) return r; return ask(head + diceHtml(dice, false), [{ label: 'Aceptar', value: 0, primary: true }, ...rr]); }
+        const r = inlineDice(dice.length, who + 'Elige un dado haciendo clic en él' + (canRR ? ', o repite con reroll.' : '.'), true, rr); if (r) return r;
         return ask(head + '<p>Elige un dado:</p>' + diceHtml(dice, true), rr);
       }
       if (!canRR) return 0;
+      { const r = inlineDice(dice.length, who + 'El rival elegirá el dado. Puedes aceptar o repetir con reroll.', false, [{ label: 'Aceptar', value: 0, primary: true }, ...rr]); if (r) return r; }
       return ask(head + '<p>El rival elegirá el dado.</p>' + diceHtml(dice, false), [{ label: 'Aceptar', value: 0, primary: true }, ...rr]);
     }
     async chooseDefDie(dice, att, def) {
       if (dice.length === 1) return 0;
+      const r = inlineDice(dice.length, `<b>${nm(att)} bloquea a ${nm(def)}.</b> Tu jugador es más fuerte: elige el dado haciendo clic en él.`, true, null); if (r) return r;
       return ask(`<h2>${nm(att)} bloquea a ${nm(def)}</h2><p>Tu jugador es más fuerte: eliges tú el dado.</p>` + diceHtml(dice, true), []);
     }
     async onTheBall(q, mv, target) {
@@ -321,7 +345,7 @@ if (!HEADLESS) (function () {
       el.classList.toggle('active-team', G.phase === 'turn' && G.active === i);
     }
     dugouts();
-    $('clock').innerHTML = `Mitad ${Math.min(2, G.half)}<small>Turno ${G.turn[0]} / ${TURNS} · ${G.turn[1]} / ${TURNS} · ${WX[G.weather]}</small>`;
+    $('clock').innerHTML = `Mitad ${Math.min(2, G.half)}<small>Turno ${G.turn[0]} / ${TURNS} · ${G.turn[1]} / ${TURNS} · <span class="wxi" role="button" tabindex="0" aria-label="Qué significa el clima" title="${WX[G.weather]}: toca para ver qué implica" style="color:${WXI[G.weather][0]}">${WXI[G.weather][1]}</span> ${WX[G.weather]}</small>`;
   }
   function renderCard(el, p, extra, empty) {
     if (!p) { el.innerHTML = `<div class="pempty">${empty}</div>`; return; }
@@ -893,6 +917,39 @@ if (!HEADLESS) (function () {
   }
   coachHook = async why => { if (SIM || !G || !G.mgr) return; await coachPanel(why); };
 
+
+  /* icono del clima y qué implica (toca el icono o el nombre) */
+  const SV = (c, body) => `<svg viewBox="0 0 24 24" width="1.25em" height="1.25em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
+  const WXI = {
+    heat: ['#d2693a', SV(0, '<path d="M10 4a2 2 0 0 1 4 0v9.2a4 4 0 1 1-4 0z"/><path d="M12 9v6"/><path d="M18 5h3M18 9h3"/>')],
+    sunny: ['#c98d12', SV(0, '<circle cx="12" cy="12" r="4"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/>')],
+    nice: ['#6b7a45', SV(0, '<circle cx="9" cy="9" r="3.2"/><path d="M9 2.8v1.4M2.8 9h1.4M4.6 4.6l1 1M13.4 4.6l-1 1"/><path d="M8 20h9a3.5 3.5 0 0 0 .4-7A5 5 0 0 0 8.2 14 3 3 0 0 0 8 20z"/>')],
+    rain: ['#3f8a86', SV(0, '<path d="M7 15h10a4 4 0 0 0 .5-8A6 6 0 0 0 6 8.5 3.3 3.3 0 0 0 7 15z"/><path d="M8 18l-1 3M12 18l-1 3M16 18l-1 3"/>')],
+    blizzard: ['#5c7fa6', SV(0, '<path d="M12 2v20M3.3 7l17.4 10M3.3 17L20.7 7"/><path d="M9.5 3.5L12 6l2.5-2.5M9.5 20.5L12 18l2.5 2.5"/>')]
+  };
+  const WXD = {
+    heat: ['Calor sofocante', 'Al terminar cada entrada, 1 a 3 jugadores al azar de cada equipo se desmayan y se pierden la entrada siguiente.'],
+    sunny: ['Muy soleado', 'Los pases son 1 más difíciles de acertar (se suma 1 a la tirada necesaria).'],
+    nice: ['Clima perfecto', 'Sin penalizaciones. Es el clima normal. El balón pateado se dispersa en el aire 3 casillas.'],
+    rain: ['Lluvia torrencial', 'El balón está resbaloso: recoger y atrapar el balón es 1 más difícil.'],
+    blizzard: ['Ventisca', 'Ir a por todas (GFI) necesita 3+ en vez de 2+, y solo se permiten pases rápidos y cortos.']
+  };
+  (function wxTip() {
+    const clock = $('clock'); let el = null, tm = 0;
+    const close = () => { if (el) { el.remove(); el = null; } clearTimeout(tm); };
+    const open = () => {
+      if (!G) return; close();
+      const k = G.weather, [nm, tx] = WXD[k], r = clock.getBoundingClientRect();
+      el = document.createElement('div'); el.id = 'wxtip';
+      el.innerHTML = `<span class="wxbig" style="color:${WXI[k][0]}">${WXI[k][1]}</span><div><b>${nm}</b><p>${tx}</p></div>`;
+      document.body.appendChild(el);
+      const w = el.offsetWidth; el.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + 'px'; el.style.top = (r.bottom + 6) + 'px';
+      tm = setTimeout(close, 9000);
+    };
+    clock.addEventListener('click', ev => { ev.stopPropagation(); el ? close() : open(); });
+    clock.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); el ? close() : open(); } });
+    document.addEventListener('click', ev => { if (el && !ev.target.closest('#wxtip')) close(); }, true);
+  })();
   /* ---- tutorial de la interfaz (globos con foco, "Siguiente") ---- */
   const TUT_KEY = 'bbTutorial1';
   function tutSeen() { try { return localStorage.getItem(TUT_KEY) === '1'; } catch (e) { return false; } }
