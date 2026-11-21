@@ -4203,15 +4203,16 @@ if (!HEADLESS) (function () {
         { t: '<b>2 dados, elige el rival.</b> Abajo, el orco tiene un compañero que te marca: 3 contra 4. Tiras 2 dados, pero <b>el rival elige</b> el peor para ti. Es un bloqueo que normalmente se evita. Hazlo solo para verlo.', hl: o => [[o.A3.x, o.A3.y], [o.E3.x, o.E3.y]], ok: o => o.A3.started }],
       done: 'Antes de bloquear mira cuántos dados tiras y quién elige. Con 2 dados a tu favor, el riesgo baja mucho; con 2 dados en contra, mejor busca otro bloqueo. <b>Regla de oro:</b> primero evita la calavera (Atacante cae y Ambos caen), después busca derribar. Caerte es turnover y pierdes el resto del turno. El botón <b>Dados</b> tiene la tabla de riesgo.' },
     { title: 'Esquivar (dodge)', soft: true, rr: 1,
-      intro: 'Un jugador que está al lado de un rival está <b>marcado</b>. Si se mueve a otra casilla, tiene que <b>esquivar</b>: tira un dado y necesita su <b>Agilidad (AG)</b> o más. Cada rival que marque la <b>casilla de destino</b> suma 1 al número que necesitas. Si falla, cae y es turnover. Un 6 siempre sale bien y un 1 siempre falla. El juego te muestra el número en cada casilla.',
+      intro: 'Un jugador que está al lado de un rival está <b>marcado</b>. Si se mueve a otra casilla, tiene que <b>esquivar</b>: tira un dado y necesita su <b>Agilidad (AG)</b> o más. <b>Cada rival que marque la casilla de destino suma 1</b> al número que necesitas, y se acumulan: con un rival 4+, con dos 5+. Si falla, cae y es turnover. Un 6 siempre sale bien y un 1 siempre falla. El juego te muestra el número en cada casilla.',
       setup(o) {
-        o.R = TP(0, 'human_lineman', 10, 7); TP(1, 'orc_lineman', 11, 7); TP(1, 'orc_lineman', 8, 5);
-        o.L2 = TP(0, 'human_lineman', 10, 11); TP(1, 'orc_lineman', 11, 11); TP(1, 'orc_lineman', 8, 10);
+        o.R = TP(0, 'human_lineman', 10, 3); TP(1, 'orc_lineman', 11, 3);
+        o.L2 = TP(0, 'human_lineman', 10, 10); TP(1, 'orc_lineman', 11, 10); TP(1, 'orc_lineman', 8, 10); TP(1, 'orc_lineman', 10, 8);
       },
       steps: [
-        { t: 'El orco marca a tu Línea de arriba. Selecciónalo y mira los números de las casillas: las doradas necesitan <b>3+</b> (su AG); la de la esquina necesita <b>4+</b> porque queda junto a otro orco. Haz clic en una dorada y confirma el riesgo. Si falla, el juego te ofrece un <b>reroll de equipo</b>.', hl: () => [[9, 7], [9, 8]], ok: o => o.R.started && (o.R.x !== 10 || o.R.y !== 7) },
-        { t: 'Ahora el Línea de abajo: tiene un orco al lado y otro cerca. La única casilla que queda libre de marcas es la dorada (<b>3+</b>); las demás piden 4+ o más. <b>Mira los números antes de elegir</b> y haz clic en la dorada.', hl: () => [[9, 12]], ok: o => o.L2.started && (o.L2.x !== 10 || o.L2.y !== 11) }],
-      done: 'Salir de una marca cuesta una tirada. Antes de esquivar piensa si hay otra opción: bloquear al marcador, o dejar al jugador donde está y mover a otros. Y siempre elige el destino con el número más bajo.' },
+        { t: 'El orco marca a tu Línea de arriba. Selecciónalo y mira los números: las casillas de atrás (doradas) no están marcadas por nadie más, así que necesitan <b>3+</b> (su AG). Haz clic en una y confirma el riesgo. Si falla, el juego te ofrece un <b>reroll de equipo</b>.', hl: () => [[9, 2], [9, 3], [9, 4]], ok: o => o.R.started && (o.R.x !== 10 || o.R.y !== 3) },
+        { t: 'Ahora el Línea de abajo, con <b>tres orcos</b> alrededor. Selecciónalo y mira: las casillas marcadas por <b>un</b> orco piden <b>4+</b> y las que marcan <b>dos</b> piden <b>5+</b> (los números se suman). Las doradas son las más baratas (4+). Elige una de ellas.', hl: () => [[9, 10], [9, 11], [10, 11], [11, 11]], ok: o => o.L2.started && (o.L2.x !== 10 || o.L2.y !== 10) }],
+      judge: o => o.L2.y <= 9 ? '<b class="ct-bad">Había casillas más baratas.</b> Te fuiste hacia donde marcan <b>dos</b> orcos (5+). Las casillas doradas de abajo y de la izquierda las marca solo uno (4+). Reintenta y compara los números antes de elegir.' : null,
+      done: 'Salir de una marca cuesta una tirada, y cada orco que marca el destino la hace más difícil. Antes de esquivar piensa si hay otra opción: bloquear al marcador, o dejar al jugador donde está y mover a otros. Y siempre elige el destino con el número más bajo.' },
     { title: 'Skills clave', soft: true, rr: 0,
       intro: 'Las <b>habilidades (skills)</b> cambian las reglas para un jugador. Cinco que verás todo el tiempo: <b>Block</b> (no cae con "Ambos caen"), <b>Dodge</b> (repite una esquivada fallida, una vez por turno, y no cae con "Tropiezo"), <b>Sure Hands</b> (repite una recogida fallida), <b>Catch</b> (repite una atrapada fallida) y <b>Pass</b> (repite un pase fallido). Se usan solas, sin gastar reroll de equipo. <b>Block</b> es el rey: 2 dados con Block fallan 1 de cada 36, más seguro que 3 dados sin Block (1 de 27).',
       setup(o) { o.C = TP(0, 'human_catcher', 10, 5); TP(1, 'orc_lineman', 11, 5); o.T = TP(0, 'human_thrower', 8, 7); o.B = TP(0, 'human_blitzer', 8, 9); },
@@ -4447,7 +4448,7 @@ if (!HEADLESS) (function () {
     d.children[2].onclick = () => d.remove();
     document.body.appendChild(d);
   }
-  const BUILD_ID = '23f710c52c';
+  const BUILD_ID = '73355a71bb';
   async function checkUpdate() {   // compara esta versión con la publicada (version.json, siempre desde la red)
     try { const r = await fetch('version.json?chk=' + Date.now(), { cache: 'no-store' }); if (r.ok && (await r.json()).id !== BUILD_ID) offerUpdate(); } catch (e) { }
   }
