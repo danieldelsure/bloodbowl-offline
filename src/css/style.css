@@ -392,7 +392,7 @@ body.mob #zctl{left:calc(max(6px,env(safe-area-inset-left,0px)) + 8px);bottom:ca
 #wxtip p{margin:3px 0 0;font:500 13px/1.35 var(--body);color:var(--ink)}
 body.mob #wxtip{width:min(280px,calc(100vw - 16px))} body.mob #wxtip p{font-size:12px}
 
-.fxd .fxl{position:absolute;left:50%;transform:translateX(-50%);white-space:nowrap;pointer-events:none;background:#000d;color:#fff;font:700 12px/1 system-ui,sans-serif;padding:3px 6px;border-radius:3px;z-index:3}
+.fxd .fxl{position:absolute;left:50%;transform:translateX(-50%);width:calc(100% + 6px);box-sizing:border-box;text-align:center;pointer-events:none;background:#000d;color:#fff;font:700 10px/1.15 system-ui,sans-serif;padding:3px 2px;border-radius:3px;z-index:3}
 .fxd .fxl.dn{top:calc(100% + 4px)}
 .fxd .fxl.up{bottom:calc(100% + 4px)}
 .fxd.pk{pointer-events:auto;cursor:pointer;outline:3px solid var(--mus);outline-offset:2px}
