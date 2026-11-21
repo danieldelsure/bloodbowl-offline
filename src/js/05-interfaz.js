@@ -89,14 +89,14 @@ if (!HEADLESS) (function () {
     const box = $('dfx'), L = box && box._lay; if (!L || box.hidden) return;
     const wr = $('boardWrap').getBoundingClientRect(), fr = $('bframe').getBoundingClientRect();
     const vl = fr.left - wr.left, vr = fr.right - wr.left, vt = fr.top - wr.top, vb = fr.bottom - wr.top;
-    const c = cellBox(L.x, L.y), tw = L.n * L.ds + (L.n - 1) * L.gap, bar = box.querySelector('.dfxbar'), bh = bar ? bar.offsetHeight + 8 : 0;
+    const c = cellBox(L.x, L.y), tw = L.n * L.ds + (L.n - 1) * L.gap, bar = box.querySelector('.dfxbar'), lab = (typeof tut !== 'undefined' && tut.on && L.n > 1) ? 26 : 0, bh = bar ? bar.offsetHeight + 8 + lab : 0;
     const above = L.y >= 2;
     const tx = Math.max(vl + tw / 2 + 4, Math.min(vr - tw / 2 - 4, c.cx));
     let ty = above ? c.cy - c.sz * 1.2 : c.cy + c.sz * 1.2;
     const top = Math.max(vt + 4 + (above ? bh : 0), Math.min(vb - L.ds - 4 - (above ? 0 : bh), ty - L.ds / 2));
     const kids = [...box.children].filter(k => k !== bar);
     kids.forEach((el, i) => { el.style.left = (tx - tw / 2 + i * (L.ds + L.gap)) + 'px'; el.style.top = top + 'px'; });
-    if (bar && kids.length) { const f = kids[0], l = kids[kids.length - 1]; bar.style.left = f.offsetLeft + 'px'; bar.style.width = (l.offsetLeft + l.offsetWidth - f.offsetLeft) + 'px'; bar.style.top = (above ? f.offsetTop - bar.offsetHeight - 8 : f.offsetTop + f.offsetHeight + 8) + 'px'; }
+    if (bar && kids.length) { const f = kids[0], l = kids[kids.length - 1], mid = (f.offsetLeft + l.offsetLeft + l.offsetWidth) / 2, bw = bar.offsetWidth; bar.style.left = Math.max(vl + 2, Math.min(vr - bw - 2, mid - bw / 2)) + 'px'; bar.style.top = (above ? f.offsetTop - bar.offsetHeight - 8 - lab : f.offsetTop + f.offsetHeight + 8 + lab) + 'px'; }
   }
   /* se elige el dado haciendo clic directo en los dados de la cancha (en celular se mantiene la ventana) */
   function inlineDice(n, text, pickable, buttons) {
@@ -111,9 +111,6 @@ if (!HEADLESS) (function () {
         bar = document.createElement('div'); bar.className = 'dfxbar';
         for (const b of buttons) { const el = document.createElement('button'); el.textContent = b.label; if (b.primary) el.className = 'primary'; el.onclick = () => done(b.value); bar.appendChild(el); }
         box.appendChild(bar);
-        const f = kids[0], l = kids[n - 1], above = box.dataset.above === '1';
-        bar.style.left = f.offsetLeft + 'px'; bar.style.width = (l.offsetLeft + l.offsetWidth - f.offsetLeft) + 'px';
-        bar.style.top = (above ? f.offsetTop - bar.offsetHeight - 8 : f.offsetTop + f.offsetHeight + 8) + 'px';
       }
       fxReanchor();
     });

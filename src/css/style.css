@@ -392,13 +392,13 @@ body.mob #zctl{left:calc(max(6px,env(safe-area-inset-left,0px)) + 8px);bottom:ca
 #wxtip p{margin:3px 0 0;font:500 13px/1.35 var(--body);color:var(--ink)}
 body.mob #wxtip{width:min(280px,calc(100vw - 16px))} body.mob #wxtip p{font-size:12px}
 
-.fxd .fxl{position:absolute;left:50%;transform:translateX(-50%);width:calc(100% + 6px);box-sizing:border-box;text-align:center;pointer-events:none;background:#000d;color:#fff;font:700 10px/1.15 system-ui,sans-serif;padding:3px 2px;border-radius:3px;z-index:3}
+.fxd .fxl{position:absolute;left:50%;transform:translateX(-50%);width:max-content;white-space:nowrap;text-align:center;pointer-events:none;background:#000d;color:#fff;font:700 11px/1.15 system-ui,sans-serif;padding:3px 6px;border-radius:3px;z-index:3}
 .fxd .fxl.dn{top:calc(100% + 4px)}
 .fxd .fxl.up{bottom:calc(100% + 4px)}
 .fxd.pk{pointer-events:auto;cursor:pointer;outline:3px solid var(--mus);outline-offset:2px}
 .fxd.pk:hover{scale:1.12;outline-color:var(--acc)}
-.dfxbar{position:absolute;display:flex;gap:8px;justify-content:center;pointer-events:auto;z-index:3}
-.dfxbar button{white-space:nowrap}
+.dfxbar{position:absolute;display:flex;gap:8px;justify-content:center;width:max-content;max-width:96%;pointer-events:auto;z-index:3}
+.dfxbar button{white-space:nowrap;flex:none;padding-left:22px;padding-right:22px}
 
 .dfxbar button{background:var(--ink);color:var(--bone)} .dfxbar button.primary{background:var(--acc);color:#fff8e6}
 
