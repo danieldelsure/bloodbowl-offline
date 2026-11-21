@@ -50,7 +50,7 @@ if (!HEADLESS) (function () {
         { transform: `translate(${sx * .45}px,${sy * .45 - 46}px) rotate(${rot * .55}deg) scale(1.3)`, opacity: 1, offset: .5 },
         { transform: `translate(0,0) rotate(${rot}deg) scale(1)`, opacity: 1 }], { duration: dur, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'forwards' }));
       const tm = setInterval(() => { im.src = ASSETS['d_' + FXF[Math.floor(Math.random() * 5)]]; }, 75);
-      anims[i].finished.then(() => { clearInterval(tm); im.src = ASSETS['d_' + f]; el.style.transform = 'none'; if (typeof tut !== 'undefined' && tut.on) { const lb = document.createElement('span'); lb.className = 'fxl ' + (box.dataset.above === '1' ? 'dn' : 'up'); lb.textContent = FACE_TXT[f]; el.appendChild(lb); } el.animate([{ transform: 'scale(1.18)' }, { transform: 'scale(1)' }], { duration: 160 }); }).catch(() => clearInterval(tm));
+      anims[i].finished.then(() => { clearInterval(tm); im.src = ASSETS['d_' + f]; el.style.transform = 'none'; if (typeof tut !== 'undefined' && tut.on) { const lb = document.createElement('span'); lb.className = 'fxl ' + (dice.length > 1 ? (i % 2 ? 'up' : 'dn') : (box.dataset.above === '1' ? 'dn' : 'up')); lb.textContent = FACE_TXT[f]; el.appendChild(lb); } el.animate([{ transform: 'scale(1.18)' }, { transform: 'scale(1)' }], { duration: 160 }); }).catch(() => clearInterval(tm));
     });
     await Promise.all(anims.map(x => x.finished.catch(() => 0)));
     await fxWait(450);
