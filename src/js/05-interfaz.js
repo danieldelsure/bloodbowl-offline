@@ -233,6 +233,7 @@ if (!HEADLESS) (function () {
       ui.moves = new Map(); ui.hover = null; ui.hl = { squares: [[x, y]], color: '#6fb6ffaa' }; draw();
       const [px, py] = await new Promise(res => { ui.pick = { ok: (a, b) => (a === x && b === y) || (a === att.x && b === att.y), res }; });
       ui.hl = null; draw();
+      if (typeof tut !== 'undefined' && tut.on && tut.o) tut.o.followed = px === x && py === y;
       return px === x && py === y;
     }
     async chooseHitRun(p, squares) {

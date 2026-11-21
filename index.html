@@ -3065,6 +3065,7 @@ if (!HEADLESS) (function () {
       ui.moves = new Map(); ui.hover = null; ui.hl = { squares: [[x, y]], color: '#6fb6ffaa' }; draw();
       const [px, py] = await new Promise(res => { ui.pick = { ok: (a, b) => (a === x && b === y) || (a === att.x && b === att.y), res }; });
       ui.hl = null; draw();
+      if (typeof tut !== 'undefined' && tut.on && tut.o) tut.o.followed = px === x && py === y;
       return px === x && py === y;
     }
     async chooseHitRun(p, squares) {
@@ -4107,6 +4108,7 @@ if (!HEADLESS) (function () {
   const diceStrip = () => '<div class="dg">' + DICE_INFO.map(d => `<div><img src="${ASSETS['d_' + d[0]]}" alt="">${d[1]}</div>`).join('') + '</div>';
   const diceGlossary = () => '<h2>Los dados de bloqueo</h2><table><tr><th></th><th>Cara</th><th>Qué pasa</th><th class="n">Por dado</th></tr>' + DICE_INFO.map(d => `<tr><td><img src="${ASSETS['d_' + d[0]]}" alt="" width="30" height="30" style="image-rendering:pixelated"></td><td>${d[1]}</td><td>${d[2]}</td><td class="n">${d[3]}</td></tr>`).join('') + '</table>' +
     '<p><b>Cuántos dados se tiran</b> (se comparan las Fuerzas, con las asistencias ya sumadas):</p><table><tr><td>Fuerzas iguales</td><td>1 dado</td><td>eliges tú</td></tr><tr><td>Atacante más fuerte</td><td>2 dados</td><td>eliges tú</td></tr><tr><td>Atacante con más del doble</td><td>3 dados</td><td>eliges tú</td></tr><tr><td>Atacante más débil</td><td>2 dados</td><td>elige el rival</td></tr><tr><td>Atacante con menos de la mitad</td><td>3 dados</td><td>elige el rival</td></tr></table>' +
+    '<p><b>Riesgo de turnover</b> por bloqueo (cae el atacante), sin reroll. Primero evita la calavera, después busca derribar:</p><table><tr><th></th><th class="n">Sin Block</th><th class="n">Con Block</th></tr><tr><td>3 dados, eliges tú</td><td class="n">1 de 27</td><td class="n">1 de 200</td></tr><tr><td>2 dados, eliges tú</td><td class="n">1 de 9</td><td class="n">1 de 36</td></tr><tr><td>1 dado</td><td class="n">1 de 3</td><td class="n">1 de 6</td></tr><tr><td>2 dados, elige el rival</td><td class="n">5 de 9</td><td class="n">3 de 10</td></tr><tr><td>3 dados, elige el rival</td><td class="n">7 de 10</td><td class="n">2 de 5</td></tr></table>' +
     '<p class="sub">Esquivar y recoger: tiras un dado de 6 y necesitas tu Agilidad o más. Cada rival que marque la casilla de destino suma 1 al número que necesitas. Un 6 siempre sale bien y un 1 siempre falla.</p>';
   /* formaciones y demostraciones: se ven armadas en la cancha, con un selector en el cartel */
   const FORM_RULES = 'Al armar la formación se exige tener <b>al menos 3 jugadores en la línea de scrimmage</b> (si tienes) y <b>no más de 2 en cada banda lateral</b> (las franjas de arriba y abajo).';
@@ -4185,7 +4187,7 @@ if (!HEADLESS) (function () {
       setup(o) { o.A = TP(0, 'human_lineman', 10, 7); o.B = TP(0, 'human_lineman', 11, 6); o.C = TP(0, 'human_lineman', 10, 8); o.E = TP(1, 'orc_lineman', 11, 7); },
       steps: [
         { t: 'Tus compañeros están junto al orco: son 2 asistencias. Selecciona al jugador de la izquierda, haz clic en el orco y elige <b>Bloquear</b>: 5 contra 3, tiras 2 dados (con más del doble de fuerza serían 3) y haces clic en el que prefieras.', hl: o => [[o.A.x, o.A.y], [o.E.x, o.E.y]], ok: o => o.A.started }],
-      done: 'Rodear al rival antes de pegarle es la base del juego: más dados, mejores resultados y menos riesgo.' },
+      done: 'Rodear al rival antes de pegarle es la base del juego: más dados, mejores resultados y menos riesgo. Ojo: un compañero tocado por otro rival no asiste. En una piña, los apoyos iniciales son los que tocan a un solo rival, casi siempre en los extremos.' },
     { title: 'Los dados de bloqueo', soft: true, rr: 0,
       intro: () => 'Cada bloqueo tira dados especiales con 5 caras. ' + diceStrip() + 'Dos cosas deciden el resultado: <b>qué cara sale</b> y <b>cuántos dados</b> tiras (según la Fuerza de cada uno, ya con asistencias). Si tiras más de uno, <b>elige quien tenga más Fuerza</b>. Tienes el resumen siempre en el botón <b>Dados</b>.',
       setup(o) {
@@ -4197,7 +4199,7 @@ if (!HEADLESS) (function () {
         { t: '<b>1 dado.</b> Tu Línea (Fuerza 3) contra el orco (Fuerza 3): igualdad, 1 dado y decides tú si te sirve. Selecciónalo, haz clic en el orco y elige <b>Bloquear</b>. (Si el turno se termina por un turnover, aprieta <b>Repetir</b>.)', hl: o => [[o.A1.x, o.A1.y], [o.E1.x, o.E1.y]], ok: o => o.A1.started },
         { t: '<b>2 dados, eliges tú.</b> Arriba, un compañero marca al orco y te da una asistencia: 4 contra 3. Tiras 2 dados y haces clic en el que prefieras: <b>Empujón</b> o <b>POW</b> si puedes, evita <b>Atacante cae</b>.', hl: o => [[o.A2.x, o.A2.y], [o.E2.x, o.E2.y]], ok: o => o.A2.started },
         { t: '<b>2 dados, elige el rival.</b> Abajo, el orco tiene un compañero que te marca: 3 contra 4. Tiras 2 dados, pero <b>el rival elige</b> el peor para ti. Es un bloqueo que normalmente se evita. Hazlo solo para verlo.', hl: o => [[o.A3.x, o.A3.y], [o.E3.x, o.E3.y]], ok: o => o.A3.started }],
-      done: 'Antes de bloquear mira cuántos dados tiras y quién elige. Con 2 dados a tu favor, el riesgo baja mucho; con 2 dados en contra, mejor busca otro bloqueo.' },
+      done: 'Antes de bloquear mira cuántos dados tiras y quién elige. Con 2 dados a tu favor, el riesgo baja mucho; con 2 dados en contra, mejor busca otro bloqueo. <b>Regla de oro:</b> primero evita la calavera (Atacante cae y Ambos caen), después busca derribar. Caerte es turnover y pierdes el resto del turno. El botón <b>Dados</b> tiene la tabla de riesgo.' },
     { title: 'Esquivar (dodge)', soft: true, rr: 1,
       intro: 'Un jugador que está al lado de un rival está <b>marcado</b>. Si se mueve a otra casilla, tiene que <b>esquivar</b>: tira un dado y necesita su <b>Agilidad (AG)</b> o más. Cada rival que marque la <b>casilla de destino</b> suma 1 al número que necesitas. Si falla, cae y es turnover. Un 6 siempre sale bien y un 1 siempre falla. El juego te muestra el número en cada casilla.',
       setup(o) {
@@ -4209,7 +4211,7 @@ if (!HEADLESS) (function () {
         { t: 'Ahora el Línea de abajo: tiene un orco al lado y otro cerca. La única casilla que queda libre de marcas es la dorada (<b>3+</b>); las demás piden 4+ o más. <b>Mira los números antes de elegir</b> y haz clic en la dorada.', hl: () => [[9, 12]], ok: o => o.L2.started && (o.L2.x !== 10 || o.L2.y !== 11) }],
       done: 'Salir de una marca cuesta una tirada. Antes de esquivar piensa si hay otra opción: bloquear al marcador, o dejar al jugador donde está y mover a otros. Y siempre elige el destino con el número más bajo.' },
     { title: 'Skills clave', soft: true, rr: 0,
-      intro: 'Las <b>habilidades (skills)</b> cambian las reglas para un jugador. Cinco que verás todo el tiempo: <b>Block</b> (no cae con "Ambos caen"), <b>Dodge</b> (repite una esquivada fallida, una vez por turno, y no cae con "Tropiezo"), <b>Sure Hands</b> (repite una recogida fallida), <b>Catch</b> (repite una atrapada fallida) y <b>Pass</b> (repite un pase fallido). Se usan solas, sin gastar reroll de equipo.',
+      intro: 'Las <b>habilidades (skills)</b> cambian las reglas para un jugador. Cinco que verás todo el tiempo: <b>Block</b> (no cae con "Ambos caen"), <b>Dodge</b> (repite una esquivada fallida, una vez por turno, y no cae con "Tropiezo"), <b>Sure Hands</b> (repite una recogida fallida), <b>Catch</b> (repite una atrapada fallida) y <b>Pass</b> (repite un pase fallido). Se usan solas, sin gastar reroll de equipo. <b>Block</b> es el rey: 2 dados con Block fallan 1 de cada 36, más seguro que 3 dados sin Block (1 de 27).',
       setup(o) { o.C = TP(0, 'human_catcher', 10, 5); TP(1, 'orc_lineman', 11, 5); o.T = TP(0, 'human_thrower', 8, 7); o.B = TP(0, 'human_blitzer', 8, 9); },
       steps: [
         { t: 'Selecciona al <b>Receptor</b> y mira su ficha: tiene <b>Catch</b> y <b>Dodge</b>. Atrapa mejor los pases y esquiva con un reintento.', hl: o => [[o.C.x, o.C.y]], ok: o => o.seen.has(o.C) },
@@ -4217,6 +4219,28 @@ if (!HEADLESS) (function () {
         { t: 'Y el <b>Blitzer</b>: tiene <b>Block</b> (y Tackle). Es el mejor para el Blitz, porque "Ambos caen" no lo tumba.', hl: o => [[o.B.x, o.B.y]], ok: o => o.seen.has(o.B) },
         { t: 'Ahora pon a prueba el <b>Dodge</b>: mueve al Receptor (marcado por el orco) a cualquier casilla y mira qué pasa si falla la esquivada: <b>repite solo</b>, sin gastar reroll.', hl: o => [[o.C.x, o.C.y]], ok: o => o.C.started && (o.C.x !== 10 || o.C.y !== 5) }],
       done: 'Mira siempre la ficha del jugador antes de decidir. Una habilidad bien aprovechada vale más que un reroll: da una segunda oportunidad gratis.' },
+    { title: 'Elegir el bloqueo seguro', soft: true, rr: 0,
+      intro: 'Casi nunca tienes un solo bloqueo posible. Antes de tirar, <b>compara</b> y elige el de menor riesgo: más dados a tu favor, menos dados en contra. Aquí hay <b>tres bloqueos posibles</b> contra tres orcos, todos con tus Líneas (sin <i>Block</i>). Haz solo <b>uno</b>: el más seguro.',
+      setup(o) {
+        o.A1 = TP(0, 'human_lineman', 5, 3); o.E1 = TP(1, 'orc_lineman', 6, 3);
+        o.A2 = TP(0, 'human_lineman', 5, 7); TP(0, 'human_lineman', 6, 6); o.E2 = TP(1, 'orc_lineman', 6, 7);
+        o.A3 = TP(0, 'human_lineman', 5, 11); o.E3 = TP(1, 'orc_lineman', 6, 11); TP(1, 'orc_lineman', 6, 12);
+      },
+      steps: [
+        { t: 'Mira cuántos dados saldría en cada uno (el juego te lo dice al elegir <b>Bloquear</b>, y también quién decide el dado) y haz el <b>más seguro</b>. Pista: cuenta las asistencias de cada lado.', hl: o => [[o.A1.x, o.A1.y], [o.A2.x, o.A2.y], [o.A3.x, o.A3.y]], ok: o => o.A1.started || o.A2.started || o.A3.started }],
+      judge: o => o.A2.started ? null : '<b class="ct-bad">Había uno mejor.</b> ' + (o.A1.started ? 'Arriba era 1 dado (3 contra 3): falla 1 de cada 3.' : 'Abajo eran 2 dados en contra (3 contra 4, elige el rival): falla 5 de cada 9.') + ' El del medio tenía una asistencia a favor: 2 dados que eliges tú, falla 1 de cada 9. Reintenta y compara antes de bloquear.',
+      done: 'Eso es leer la cancha: <b>2 dados que eliges tú</b> (1 de 9 de turnover) contra 1 dado (1 de 3) o 2 dados en contra (5 de 9). Antes de cada bloqueo pregúntate: ¿hay otro con más dados o más asistencias? Y si puedes, haz primero los más seguros.' },
+    { title: 'Seguir o no seguir', soft: true, rr: 0,
+      intro: 'Cuando <b>empujas</b> a un rival, el juego te pregunta si quieres <b>seguirlo</b> (ocupar su casilla). No es gratis: seguir te acerca, pero te deja pegado a sus compañeros. La regla práctica: <b>si lo derribaste, síguelo</b> (puedes bloquearlo otra vez si se levanta); <b>si solo lo empujaste, quédate</b>, salvo que vayas a apoyar otro bloqueo.',
+      setup(o) { o.A = TP(0, 'human_lineman', 10, 7); TP(0, 'human_lineman', 11, 6); TP(0, 'human_lineman', 10, 8); o.E = TP(1, 'orc_lineman', 11, 7); TP(1, 'orc_lineman', 13, 6); TP(1, 'orc_lineman', 13, 8); o.followed = undefined; },
+      steps: [
+        { t: 'Bloquea al orco con tu Línea de la izquierda (2 dados). Si sale <b>Empujón</b>, <b>Tropiezo</b> o <b>POW</b>, el juego te preguntará si seguir: decide con la regla del cartel. (Si el turno se acaba por un turnover, aprieta <b>Repetir</b>.)', hl: o => [[o.A.x, o.A.y], [o.E.x, o.E.y]], ok: o => o.A.started }],
+      done: o => {
+        const fell = o.E.loc !== 'pitch' || o.E.state !== 'standing', f = o.followed;
+        if (f === undefined) return 'No hubo empujón, así que no hubo qué decidir. Aprieta <b>Repetir</b> para probar otra vez. Recuerda: derribado, síguelo; solo empujado, quédate.';
+        if (fell) return f ? 'Bien: el orco quedó en el suelo y lo seguiste. Si se levanta, lo bloqueas de nuevo con ventaja, y mientras está tumbado no te puede bloquear.' : 'El orco quedó en el suelo: podías haberlo <b>seguido</b>, es gratis. Así, si se levanta, ya estás pegado para bloquearlo otra vez.';
+        return f ? 'Seguiste a un orco que sigue de pie: ahora te puede bloquear a ti, sin tus compañeros cerca. Solo conviene si vas a apoyar a otro bloqueo.' : 'Bien: solo lo empujaste y te quedaste con tus compañeros. Así mantienes las asistencias y no le regalas un bloqueo.';
+      } },
     { title: 'Surf: al público',
       intro: 'Si un jugador es empujado fuera del campo cae al público: <b>sale del partido</b>, sufre una tirada de lesión sin armadura y, si tenía el balón, lo suelta. Cerca de la banda, un empujón puede ser mejor que un derribo.',
       rr: 0,
@@ -4284,7 +4308,7 @@ if (!HEADLESS) (function () {
     }
     const st = lessonSteps();
     const cur = st.findIndex(x => !x.ok);
-    if (cur === -1) { tutEnd('won'); return; }
+    if (cur === -1) { const v = L.judge && L.judge(tut.o); if (v) tutEnd('fail', v); else tutEnd('won'); return; }
     if (ui.phase !== 'turn') { tutEnd(L.soft && st.some(x => x.ok) ? 'won' : 'lost'); return; }
     if (L.stuck && L.stuck(tut.o)) { tutEnd('stuck'); return; }
     if (G.teams[0].players.every(q => q.loc !== 'pitch' || q.used)) { tutEnd('stuck'); return; }
@@ -4301,7 +4325,7 @@ if (!HEADLESS) (function () {
         if (G.td != null) await fxBanner('say', null, { title: '¡Touchdown!', text: G.teams[G.td].name + ' anota', c: G.teams[G.td].color, ms: 1300 });
         await fxBanner('say', null, { title: '¡Lección superada!', text: tut.L.title, c: '#ffd23f', ms: 1500 });
       })();
-      $('ctStep').innerHTML = `<b class="ct-ok">${G.turnover ? 'Hubo turnover, pero ya viste cómo funciona.' : '¡Muy bien!'}</b> ${tut.L.done}`;
+      $('ctStep').innerHTML = `<b class="ct-ok">${G.turnover ? 'Hubo turnover, pero ya viste cómo funciona.' : '¡Muy bien!'}</b> ${typeof tut.L.done === 'function' ? tut.L.done(tut.o) : tut.L.done}`;
       $('ctNext').hidden = false; $('ctRetry').textContent = 'Repetir';
       msg('<b>Lección completada.</b> Aprieta "Siguiente" en el cartel.');
     } else if (r === 'fail') {
@@ -4421,7 +4445,7 @@ if (!HEADLESS) (function () {
     d.children[2].onclick = () => d.remove();
     document.body.appendChild(d);
   }
-  const BUILD_ID = '6fe0c7a0bb';
+  const BUILD_ID = 'ff6e0ea245';
   async function checkUpdate() {   // compara esta versión con la publicada (version.json, siempre desde la red)
     try { const r = await fetch('version.json?chk=' + Date.now(), { cache: 'no-store' }); if (r.ok && (await r.json()).id !== BUILD_ID) offerUpdate(); } catch (e) { }
   }
