@@ -488,9 +488,26 @@ body.mob .pst-side{padding:10px 16px 6px}
 body.mob .pst-side p{display:none}
 
 #cartel.tip{max-height:230px}
-#cartel.tip #ctRetry,#cartel.tip #ctSkip,#cartel.tip #ctExit,#cartel.tip #ctHide{display:none}
+#cartel.tip #ctGlos,#cartel.tip #ctRetry,#cartel.tip #ctSkip,#cartel.tip #ctExit,#cartel.tip #ctHide{display:none}
 #cartel.tip #ctStep:empty{display:none}
 #cartel .bd{display:inline-block;width:12px;height:12px;vertical-align:-1px;border:1px solid #0006}
+
+#cartel .dg,#modalBox .dg{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin:6px 0}
+#cartel .dg div,#modalBox .dg div{background:#fff9;border:1px solid #0003;padding:3px 2px;text-align:center;font-size:11.5px;line-height:1.15;font-weight:600}
+#cartel .dg img,#modalBox .dg img{width:30px;height:30px;image-rendering:pixelated;display:block;margin:0 auto 2px}
+body.mob #cartel .dg img{width:22px;height:22px}
+body.mob #cartel .dg div{font-size:10px}
+#modalBox .fgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:10px 0}
+#modalBox .fgrid.f6{grid-template-columns:repeat(6,1fr);gap:8px}
+#modalBox .fcell{display:flex;flex-direction:column;gap:3px;font-size:12.5px;line-height:1.3}
+#modalBox .f6 .fcell{font-size:11.5px}
+#modalBox .fcell b{font-size:14.5px}
+#modalBox .fcell span{color:var(--dim);font-weight:500}
+#modalBox .fsv{width:100%;height:auto;display:block;border:2px solid var(--ink)}
+#modalBox .fnone{aspect-ratio:130/150;display:flex;align-items:center;justify-content:center;text-align:center;background:#0001;border:2px dashed var(--dim);color:var(--dim);font-weight:600;padding:8px}
+@media (max-width:700px){#modalBox .fgrid,#modalBox .fgrid.f6{grid-template-columns:repeat(2,1fr);gap:8px}#modalBox .fcell{font-size:11.5px}}
+#modalBox .bd{display:inline-block;width:12px;height:12px;vertical-align:-1px;border:1px solid #0006}
+#cartel .dg img{width:26px;height:26px}
 
 </style>
 </head>
@@ -516,7 +533,7 @@ body.mob .pst-side p{display:none}
       <div id="bnr" hidden></div>
       <div id="bottom">
         <div class="box" id="cartel" hidden>
-          <div class="ct-top"><span id="ctK"></span><span class="ct-b"><button id="ctNext" class="primary" hidden>Siguiente</button><button id="ctRetry">Reiniciar</button><button id="ctSkip">Saltar</button><button id="ctExit">Salir</button><button id="ctHide" title="Mostrar u ocultar la explicación">Explicación</button></span></div>
+          <div class="ct-top"><span id="ctK"></span><span class="ct-b"><button id="ctNext" class="primary" hidden>Siguiente</button><button id="ctGlos" title="Resumen de los dados de bloqueo">Dados</button><button id="ctRetry">Reiniciar</button><button id="ctSkip">Saltar</button><button id="ctExit">Salir</button><button id="ctHide" title="Mostrar u ocultar la explicación">Explicación</button></span></div>
           <h3 id="ctT"></h3>
           <div id="ctX"></div>
           <div id="ctStep"></div>
@@ -4073,6 +4090,41 @@ if (!HEADLESS) (function () {
   const looseBall = (x, y) => { G.ball.carrier = null; G.ball.x = x; G.ball.y = y; };
   const at = (p, x, y) => p.loc === 'pitch' && p.x === x && p.y === y;
   const sq = (...a) => a;
+
+  /* guía de dados de bloqueo (cartel y glosario) */
+  const DICE_INFO = [
+    ['skull', 'Atacante cae', 'El atacante cae. Es turnover.', '1 de 6'],
+    ['both', 'Ambos caen', 'Caen los dos. Es turnover para ti, salvo que tengas <i>Block</i> (entonces no caes). Si el rival tiene <i>Block</i>, tampoco cae.', '1 de 6'],
+    ['push', 'Empujón', 'El rival retrocede una casilla. Nadie cae.', '2 de 6'],
+    ['stumble', 'Tropiezo', 'Empujón, y el rival cae salvo que tenga <i>Dodge</i>.', '1 de 6'],
+    ['pow', '¡POW!', 'El rival es empujado y cae.', '1 de 6']
+  ];
+  const diceStrip = () => '<div class="dg">' + DICE_INFO.map(d => `<div><img src="${ASSETS['d_' + d[0]]}" alt="">${d[1]}</div>`).join('') + '</div>';
+  const diceGlossary = () => '<h2>Los dados de bloqueo</h2><table><tr><th></th><th>Cara</th><th>Qué pasa</th><th class="n">Por dado</th></tr>' + DICE_INFO.map(d => `<tr><td><img src="${ASSETS['d_' + d[0]]}" alt="" width="30" height="30" style="image-rendering:pixelated"></td><td>${d[1]}</td><td>${d[2]}</td><td class="n">${d[3]}</td></tr>`).join('') + '</table>' +
+    '<p><b>Cuántos dados se tiran</b> (se comparan las Fuerzas, con las asistencias ya sumadas):</p><table><tr><td>Fuerzas iguales</td><td>1 dado</td><td>eliges tú</td></tr><tr><td>Atacante más fuerte</td><td>2 dados</td><td>eliges tú</td></tr><tr><td>Atacante con más del doble</td><td>3 dados</td><td>eliges tú</td></tr><tr><td>Atacante más débil</td><td>2 dados</td><td>elige el rival</td></tr><tr><td>Atacante con menos de la mitad</td><td>3 dados</td><td>elige el rival</td></tr></table>' +
+    '<p class="sub">Esquivar y recoger: tiras un dado de 6 y necesitas tu Agilidad o más. Cada rival que marque la casilla de destino suma 1 al número que necesitas. Un 6 siempre sale bien y un 1 siempre falla.</p>';
+  /* diagramas de formaciones (mitad izquierda, la línea de scrimmage queda a la derecha) */
+  const ROLE_C = { L: '#2b6cb0', M: '#2b6cb0', B: '#d52b1e', W: '#f2b632', K: '#ffffff' };
+  const formSvg = slots => '<svg viewBox="0 0 130 150" class="fsv"><rect width="130" height="150" fill="#3f8a3a"/><rect y="0" width="130" height="40" fill="#0002"/><rect y="110" width="130" height="40" fill="#0002"/><rect x="123" width="4" height="150" fill="#fff9"/>' +
+    slots.map(([x, y, r]) => `<circle cx="${x * 10 + 5}" cy="${y * 10 + 5}" r="4.4" fill="${ROLE_C[r]}" stroke="#000b" stroke-width="1"/>`).join('') + '</svg>';
+  const formsHtml = (kind, keys, notes, title, intro, tip) => `<h2>${title}</h2><p>${intro}</p><div class="fgrid f${keys.length}">` +
+    keys.map(k => { const f = FORMS[kind][k]; return `<div class="fcell">${f.slots ? formSvg(f.slots) : '<div class="fnone">Lo arma el juego solo</div>'}<b>${f.name}</b><span>${notes[k]}</span></div>`; }).join('') +
+    `</div><p class="sub"><span class="bd" style="background:#2b6cb0"></span> línea y ligeros &nbsp; <span class="bd" style="background:#d52b1e"></span> Blitzer &nbsp; <span class="bd" style="background:#f2b632"></span> Receptor &nbsp; <span class="bd" style="background:#fff"></span> Lanzador. La línea blanca de la derecha es la línea de scrimmage.</p><p><b>Recomendación:</b> ${tip}</p>`;
+  const FORM_RULES = 'Al armar la formación se exige tener <b>al menos 3 jugadores en la línea de scrimmage</b> (si tienes) y <b>no más de 2 en cada banda lateral</b> (las franjas de arriba y abajo, más oscuras).';
+  const FORM_ATT = () => formsHtml('att', ['front', 'cage', 'spread', 'flank'], {
+    front: 'Todos al frente para pegar en el primer turno. Buena si tu equipo pega más fuerte que el rival.',
+    cage: 'Cinco al frente y el resto cerca del portador. La más segura para controlar el balón.',
+    spread: 'Línea abierta y receptores en las bandas. Para equipos de pase y velocidad, con más riesgo.',
+    flank: 'Ocho jugadores cargan por una banda. Rápida, útil si el rival está cargado al otro lado.'
+  }, 'Formaciones de ataque (cuando recibes)', 'Cuando recibes la patada, tu formación decide si podrás armar un cage, pasar o pegar. ' + FORM_RULES, 'si dudas, <b>Cage lento</b>. Con un equipo veloz y buenos receptores, prueba <b>Abierto</b>. <b>Frente completo</b> solo si te sobra fuerza.');
+  const FORM_DEF = () => formsHtml('def', ['std', 'five', 'wall', 'wide', 'open', 'deep'], {
+    std: 'Tres en la línea, pantalla ancha a dos casillas y los valiosos atrás. Sirve casi siempre.',
+    five: 'Tres al frente, tres en tercera línea y los cinco más valiosos protegidos. Muy sólida.',
+    wall: 'Todo compacto al centro. Fuerte de frente, débil por las bandas.',
+    wide: 'Línea abierta: al rival le cuesta juntar asistencias, pero deja huecos.',
+    open: 'Deja huecos para que no armen un cage. Los obliga a arriesgar el balón.',
+    deep: 'Todos lejos del rival. Casi no hay bajas, pero cedes campo.'
+  }, 'Formaciones de defensa (cuando pateas)', 'Cuando pateas, tu formación decide cuánto campo cedes y qué tan difícil es llegar al portador. ' + FORM_RULES, 'si dudas, <b>Estándar</b> o <b>Regla de cinco</b>. Contra un equipo que pega mucho, <b>Retaguardia</b> evita regalar bajas. Contra un cage, <b>Medio abierto</b>.');
   const LESSONS = [
     { title: 'Moverte y esprintar',
       intro: 'Tú eres el equipo azul y juegas hacia la derecha. Cada jugador tiene un valor de <b>Movimiento (MA)</b>: cuántas casillas puede avanzar en su activación. Las casillas <b>verdes</b> se alcanzan sin tirar dados.',
@@ -4106,6 +4158,37 @@ if (!HEADLESS) (function () {
       steps: [
         { t: 'Tus compañeros están junto al orco: son 2 asistencias. Selecciona al jugador de la izquierda, haz clic en el orco y elige <b>Bloquear</b>: 5 contra 3, tiras 2 dados (con más del doble de fuerza serían 3) y haces clic en el que prefieras.', hl: o => [[o.A.x, o.A.y], [o.E.x, o.E.y]], ok: o => o.A.started }],
       done: 'Rodear al rival antes de pegarle es la base del juego: más dados, mejores resultados y menos riesgo.' },
+    { title: 'Los dados de bloqueo', soft: true, rr: 0,
+      intro: () => 'Cada bloqueo tira dados especiales con 5 caras. ' + diceStrip() + 'Dos cosas deciden el resultado: <b>qué cara sale</b> y <b>cuántos dados</b> tiras (según la Fuerza de cada uno, ya con asistencias). Si tiras más de uno, <b>elige quien tenga más Fuerza</b>. Tienes el resumen siempre en el botón <b>Dados</b>.',
+      setup(o) {
+        o.A1 = TP(0, 'human_lineman', 5, 7); o.E1 = TP(1, 'orc_lineman', 6, 7);
+        o.A2 = TP(0, 'human_lineman', 5, 3); TP(0, 'human_lineman', 6, 2); o.E2 = TP(1, 'orc_lineman', 6, 3);
+        o.A3 = TP(0, 'human_lineman', 5, 11); o.E3 = TP(1, 'orc_lineman', 6, 11); TP(1, 'orc_lineman', 6, 12);
+      },
+      steps: [
+        { t: '<b>1 dado.</b> Tu Línea (Fuerza 3) contra el orco (Fuerza 3): igualdad, 1 dado y decides tú si te sirve. Selecciónalo, haz clic en el orco y elige <b>Bloquear</b>. (Si el turno se termina por un turnover, aprieta <b>Repetir</b>.)', hl: o => [[o.A1.x, o.A1.y], [o.E1.x, o.E1.y]], ok: o => o.A1.started },
+        { t: '<b>2 dados, eliges tú.</b> Arriba, un compañero marca al orco y te da una asistencia: 4 contra 3. Tiras 2 dados y haces clic en el que prefieras: <b>Empujón</b> o <b>POW</b> si puedes, evita <b>Atacante cae</b>.', hl: o => [[o.A2.x, o.A2.y], [o.E2.x, o.E2.y]], ok: o => o.A2.started },
+        { t: '<b>2 dados, elige el rival.</b> Abajo, el orco tiene un compañero que te marca: 3 contra 4. Tiras 2 dados, pero <b>el rival elige</b> el peor para ti. Es un bloqueo que normalmente se evita. Hazlo solo para verlo.', hl: o => [[o.A3.x, o.A3.y], [o.E3.x, o.E3.y]], ok: o => o.A3.started }],
+      done: 'Antes de bloquear mira cuántos dados tiras y quién elige. Con 2 dados a tu favor, el riesgo baja mucho; con 2 dados en contra, mejor busca otro bloqueo.' },
+    { title: 'Esquivar (dodge)', soft: true, rr: 1,
+      intro: 'Un jugador que está al lado de un rival está <b>marcado</b>. Si se mueve a otra casilla, tiene que <b>esquivar</b>: tira un dado y necesita su <b>Agilidad (AG)</b> o más. Cada rival que marque la <b>casilla de destino</b> suma 1 al número que necesitas. Si falla, cae y es turnover. Un 6 siempre sale bien y un 1 siempre falla. El juego te muestra el número en cada casilla.',
+      setup(o) {
+        o.R = TP(0, 'human_lineman', 10, 7); TP(1, 'orc_lineman', 11, 7); TP(1, 'orc_lineman', 8, 5);
+        o.L2 = TP(0, 'human_lineman', 10, 11); TP(1, 'orc_lineman', 11, 11); TP(1, 'orc_lineman', 8, 10);
+      },
+      steps: [
+        { t: 'El orco marca a tu Línea de arriba. Selecciónalo y mira los números de las casillas: las doradas necesitan <b>3+</b> (su AG); la de la esquina necesita <b>4+</b> porque queda junto a otro orco. Haz clic en una dorada y confirma el riesgo. Si falla, el juego te ofrece un <b>reroll de equipo</b>.', hl: () => [[9, 7], [9, 8]], ok: o => o.R.started && (o.R.x !== 10 || o.R.y !== 7) },
+        { t: 'Ahora el Línea de abajo: tiene un orco al lado y otro cerca. La única casilla que queda libre de marcas es la dorada (<b>3+</b>); las demás piden 4+ o más. <b>Mira los números antes de elegir</b> y haz clic en la dorada.', hl: () => [[9, 12]], ok: o => o.L2.started && (o.L2.x !== 10 || o.L2.y !== 11) }],
+      done: 'Salir de una marca cuesta una tirada. Antes de esquivar piensa si hay otra opción: bloquear al marcador, o dejar al jugador donde está y mover a otros. Y siempre elige el destino con el número más bajo.' },
+    { title: 'Skills clave', soft: true, rr: 0,
+      intro: 'Las <b>habilidades (skills)</b> cambian las reglas para un jugador. Cinco que verás todo el tiempo: <b>Block</b> (no cae con "Ambos caen"), <b>Dodge</b> (repite una esquivada fallida, una vez por turno, y no cae con "Tropiezo"), <b>Sure Hands</b> (repite una recogida fallida), <b>Catch</b> (repite una atrapada fallida) y <b>Pass</b> (repite un pase fallido). Se usan solas, sin gastar reroll de equipo.',
+      setup(o) { o.C = TP(0, 'human_catcher', 10, 5); TP(1, 'orc_lineman', 11, 5); o.T = TP(0, 'human_thrower', 8, 7); o.B = TP(0, 'human_blitzer', 8, 9); },
+      steps: [
+        { t: 'Selecciona al <b>Receptor</b> y mira su ficha: tiene <b>Catch</b> y <b>Dodge</b>. Atrapa mejor los pases y esquiva con un reintento.', hl: o => [[o.C.x, o.C.y]], ok: o => o.seen.has(o.C) },
+        { t: 'Ahora el <b>Lanzador</b>: tiene <b>Pass</b> y <b>Sure Hands</b>. Es el que debería llevar el balón y pasar.', hl: o => [[o.T.x, o.T.y]], ok: o => o.seen.has(o.T) },
+        { t: 'Y el <b>Blitzer</b>: tiene <b>Block</b> (y Tackle). Es el mejor para el Blitz, porque "Ambos caen" no lo tumba.', hl: o => [[o.B.x, o.B.y]], ok: o => o.seen.has(o.B) },
+        { t: 'Ahora pon a prueba el <b>Dodge</b>: mueve al Receptor (marcado por el orco) a cualquier casilla y mira qué pasa si falla la esquivada: <b>repite solo</b>, sin gastar reroll.', hl: o => [[o.C.x, o.C.y]], ok: o => o.C.started && (o.C.x !== 10 || o.C.y !== 5) }],
+      done: 'Mira siempre la ficha del jugador antes de decidir. Una habilidad bien aprovechada vale más que un reroll: da una segunda oportunidad gratis.' },
     { title: 'Surf: al público',
       intro: 'Si un jugador es empujado fuera del campo cae al público: <b>sale del partido</b>, sufre una tirada de lesión sin armadura y, si tenía el balón, lo suelta. Cerca de la banda, un empujón puede ser mejor que un derribo.',
       rr: 0,
@@ -4144,12 +4227,20 @@ if (!HEADLESS) (function () {
       afterHuman(o, r) { if (r === 1 && !o.gold.every(([x, y]) => { const q = playerAt(x, y); return q && q.team === 0; })) return ['fail', '<b class="ct-bad">La pantalla no estaba armada.</b> Antes de terminar el turno, pon a tus 8 jugadores en las casillas doradas: así el rival no tiene por dónde pasar. Reintenta.']; return null; },
       afterAI(o, r) { if (G.td === 1) return ['fail', '<b class="ct-bad">La IA anotó.</b> Se coló por un hueco de la línea. Mantén las zonas de defensa solapadas y bloquea al portador cuando se acerque. Reintenta.']; return r === 3 ? 'won' : null; },
       done: 'Una pantalla limita por dónde puede correr el rival. Cuanto más ancha y más adelantada, más tiempo ganas para llegar al portador.' }
+    ,
+    { title: 'Formaciones de ataque', info: FORM_ATT, steps: [], setup() {}, done: '' },
+    { title: 'Formaciones de defensa', info: FORM_DEF, steps: [], setup() {}, done: '' }
   ];
 
   function lessonSteps() { const L = tut.L; return L.steps.map(s => ({ s, ok: !!s.ok(tut.o) })); }
   function tutStatus() {
     if (!tut.on || tut.state !== 'play' || ui.busy) return;
     const L = tut.L;
+    if (ui.sel) tut.o.seen.add(ui.sel);
+    if (L.info) {
+      if (!tut.infoOpen) { $('ctStep').innerHTML = 'Cuando termines de mirar, aprieta <b>Siguiente</b>. <i>Reiniciar</i> vuelve a mostrar el cuadro.'; $('ctNext').hidden = false; }
+      return;
+    }
     if (L.turns) {
       if (ui.phase !== 'turn' || tut.aiRun) return;
       $('ctStep').innerHTML = `<b>Turno ${tut.round} de ${L.turns}.</b> ${L.turnText(tut.o, tut.round)}<div class="ct-sub">¿Te trabaste? Aprieta Reiniciar.</div>`;
@@ -4160,7 +4251,7 @@ if (!HEADLESS) (function () {
     const st = lessonSteps();
     const cur = st.findIndex(x => !x.ok);
     if (cur === -1) { tutEnd('won'); return; }
-    if (ui.phase !== 'turn') { tutEnd('lost'); return; }
+    if (ui.phase !== 'turn') { tutEnd(L.soft && st.some(x => x.ok) ? 'won' : 'lost'); return; }
     if (L.stuck && L.stuck(tut.o)) { tutEnd('stuck'); return; }
     if (G.teams[0].players.every(q => q.loc !== 'pitch' || q.used)) { tutEnd('stuck'); return; }
     $('ctStep').innerHTML = `<b>Paso ${cur + 1} de ${st.length}.</b> ${L.steps[cur].t}<div class="ct-sub">¿Te trabaste? Aprieta Reiniciar.</div>`;
@@ -4234,19 +4325,20 @@ if (!HEADLESS) (function () {
     G.teams[0].ctrl = new Human(0); G.teams[1].ctrl = new AI2(1);
     G.teams.forEach(t => { t.rerolls = L.rr || 0; t.rrMax = L.rr || 0; t.ff = 3; });
     G.phase = 'turn'; G.active = 0; G.turn = [1, 0]; G.half = 1; G.halfStart = false; G.first = 0; G.kicker = 1;
-    tut.o = {}; L.setup(tut.o);
+    tut.o = { seen: new Set() }; L.setup(tut.o);
     ui.phase = 'turn'; ui.sel = null; ui.mode = 'move'; ui.busy = false; ui.pick = null; ui.moves = new Map(); ui.hl = null; ui.tutHl = null; ui.turnRes = () => {};
     tut.state = 'play'; tut.hlKey = null; tut.gen = (tut.gen || 0) + 1; tut.aiRun = false; tut.round = 1; ui.tutBands = !!L.bands;
     $('ctNext').hidden = true; $('ctRetry').textContent = 'Reiniciar';
     $('log').innerHTML = ''; ulog = []; card(null); resize(); refresh();
     msg('<b>Lección.</b> Sigue las indicaciones del cartel.');
     if (L.turns) { const g = tut.gen; (async () => { await playTurn(0, true); if (g === tut.gen) tutRounds(g); })(); }
+    if (L.info) { tut.infoOpen = true; ui.phase = 'idle'; msg('<b>Formaciones.</b> Mira el cuadro y aprieta "Siguiente".'); const g = tut.gen; ask(L.info(), [{ label: 'Entendido', value: 1, primary: true }], true).then(() => { if (g === tut.gen) tut.infoOpen = false; }); }
     tutStatus();
   }
   function tutCartel() {
     const L = tut.L;
     $('ctK').textContent = `Lección ${tut.i + 1} de ${LESSONS.length}`;
-    $('ctT').textContent = L.title; $('ctX').innerHTML = L.intro;
+    $('ctT').textContent = L.title; $('ctX').innerHTML = L.info ? 'Una formación es cómo ubicas a tus 11 jugadores antes de la patada. Aquí tienes las que ofrece el juego y cuándo conviene cada una.' : (typeof L.intro === 'function' ? L.intro() : L.intro);
   }
   function runLesson(i) {
     tut.i = i; tut.L = LESSONS[i]; tutCartel(); tutSetup();
@@ -4260,6 +4352,7 @@ if (!HEADLESS) (function () {
     $('ctRetry').onclick = () => { if (ui.busy || tut.aiRun) return; tutSetup(); };
     $('ctSkip').onclick = () => { if (tut.aiRun) return; const r = tut.res; tut.res = null; if (r) r('next'); };
     $('ctExit').onclick = () => { if (tut.aiRun) return; const r = tut.res; tut.res = null; if (r) r('exit'); };
+    $('ctGlos').onclick = () => { if (ui.busy || tut.aiRun) return; ask(diceGlossary(), [{ label: 'Cerrar', value: 1, primary: true }], true); };
     $('ctHide').onclick = () => { $('cartel').classList.toggle('xmin'); };
     $('cartel').classList.toggle('xmin', document.body.classList.contains('mob'));
     let i = 0, out = 'done';
@@ -4292,7 +4385,7 @@ if (!HEADLESS) (function () {
     d.children[2].onclick = () => d.remove();
     document.body.appendChild(d);
   }
-  const BUILD_ID = '47d427d20c';
+  const BUILD_ID = '7f5d35675a';
   async function checkUpdate() {   // compara esta versión con la publicada (version.json, siempre desde la red)
     try { const r = await fetch('version.json?chk=' + Date.now(), { cache: 'no-store' }); if (r.ok && (await r.json()).id !== BUILD_ID) offerUpdate(); } catch (e) { }
   }
