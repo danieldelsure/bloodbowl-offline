@@ -497,17 +497,14 @@ body.mob .pst-side p{display:none}
 #cartel .dg img,#modalBox .dg img{width:30px;height:30px;image-rendering:pixelated;display:block;margin:0 auto 2px}
 body.mob #cartel .dg img{width:22px;height:22px}
 body.mob #cartel .dg div{font-size:10px}
-#modalBox .fgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:10px 0}
-#modalBox .fgrid.f6{grid-template-columns:repeat(6,1fr);gap:8px}
-#modalBox .fcell{display:flex;flex-direction:column;gap:3px;font-size:12.5px;line-height:1.3}
-#modalBox .f6 .fcell{font-size:11.5px}
-#modalBox .fcell b{font-size:14.5px}
-#modalBox .fcell span{color:var(--dim);font-weight:500}
-#modalBox .fsv{width:100%;height:auto;display:block;border:2px solid var(--ink)}
-#modalBox .fnone{aspect-ratio:130/150;display:flex;align-items:center;justify-content:center;text-align:center;background:#0001;border:2px dashed var(--dim);color:var(--dim);font-weight:600;padding:8px}
-@media (max-width:700px){#modalBox .fgrid,#modalBox .fgrid.f6{grid-template-columns:repeat(2,1fr);gap:8px}#modalBox .fcell{font-size:11.5px}}
 #modalBox .bd{display:inline-block;width:12px;height:12px;vertical-align:-1px;border:1px solid #0006}
 #cartel .dg img{width:26px;height:26px}
+#cartel .fch{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 6px}
+#cartel .fch button{padding:5px 10px;font-size:13px;background:var(--ink);color:var(--bone)}
+#cartel .fch button.on{background:var(--acc);color:#fff}
+body.mob #cartel .fch button{padding:4px 7px;font-size:11px}
+body.mob #cartel .fch{gap:4px}
+body.mob #cartel .fch button{padding:4px 8px!important;font-size:12px!important;min-height:0!important;height:auto!important;width:auto!important;line-height:1.2!important;flex:0 0 auto}
 
 </style>
 </head>
@@ -4103,28 +4100,29 @@ if (!HEADLESS) (function () {
   const diceGlossary = () => '<h2>Los dados de bloqueo</h2><table><tr><th></th><th>Cara</th><th>Qué pasa</th><th class="n">Por dado</th></tr>' + DICE_INFO.map(d => `<tr><td><img src="${ASSETS['d_' + d[0]]}" alt="" width="30" height="30" style="image-rendering:pixelated"></td><td>${d[1]}</td><td>${d[2]}</td><td class="n">${d[3]}</td></tr>`).join('') + '</table>' +
     '<p><b>Cuántos dados se tiran</b> (se comparan las Fuerzas, con las asistencias ya sumadas):</p><table><tr><td>Fuerzas iguales</td><td>1 dado</td><td>eliges tú</td></tr><tr><td>Atacante más fuerte</td><td>2 dados</td><td>eliges tú</td></tr><tr><td>Atacante con más del doble</td><td>3 dados</td><td>eliges tú</td></tr><tr><td>Atacante más débil</td><td>2 dados</td><td>elige el rival</td></tr><tr><td>Atacante con menos de la mitad</td><td>3 dados</td><td>elige el rival</td></tr></table>' +
     '<p class="sub">Esquivar y recoger: tiras un dado de 6 y necesitas tu Agilidad o más. Cada rival que marque la casilla de destino suma 1 al número que necesitas. Un 6 siempre sale bien y un 1 siempre falla.</p>';
-  /* diagramas de formaciones (mitad izquierda, la línea de scrimmage queda a la derecha) */
-  const ROLE_C = { L: '#2b6cb0', M: '#2b6cb0', B: '#d52b1e', W: '#f2b632', K: '#ffffff' };
-  const formSvg = slots => '<svg viewBox="0 0 130 150" class="fsv"><rect width="130" height="150" fill="#3f8a3a"/><rect y="0" width="130" height="40" fill="#0002"/><rect y="110" width="130" height="40" fill="#0002"/><rect x="123" width="4" height="150" fill="#fff9"/>' +
-    slots.map(([x, y, r]) => `<circle cx="${x * 10 + 5}" cy="${y * 10 + 5}" r="4.4" fill="${ROLE_C[r]}" stroke="#000b" stroke-width="1"/>`).join('') + '</svg>';
-  const formsHtml = (kind, keys, notes, title, intro, tip) => `<h2>${title}</h2><p>${intro}</p><div class="fgrid f${keys.length}">` +
-    keys.map(k => { const f = FORMS[kind][k]; return `<div class="fcell">${f.slots ? formSvg(f.slots) : '<div class="fnone">Lo arma el juego solo</div>'}<b>${f.name}</b><span>${notes[k]}</span></div>`; }).join('') +
-    `</div><p class="sub"><span class="bd" style="background:#2b6cb0"></span> línea y ligeros &nbsp; <span class="bd" style="background:#d52b1e"></span> Blitzer &nbsp; <span class="bd" style="background:#f2b632"></span> Receptor &nbsp; <span class="bd" style="background:#fff"></span> Lanzador. La línea blanca de la derecha es la línea de scrimmage.</p><p><b>Recomendación:</b> ${tip}</p>`;
-  const FORM_RULES = 'Al armar la formación se exige tener <b>al menos 3 jugadores en la línea de scrimmage</b> (si tienes) y <b>no más de 2 en cada banda lateral</b> (las franjas de arriba y abajo, más oscuras).';
-  const FORM_ATT = () => formsHtml('att', ['front', 'cage', 'spread', 'flank'], {
+  /* formaciones: se ven armadas en la cancha, con las formaciones reales del juego */
+  const FORM_RULES = 'Al armar la formación se exige tener <b>al menos 3 jugadores en la línea de scrimmage</b> (si tienes) y <b>no más de 2 en cada banda lateral</b> (las franjas de arriba y abajo).';
+  const FORM_ATT = { kind: 'att', keys: ['front', 'cage', 'spread', 'flank'], notes: {
     front: 'Todos al frente para pegar en el primer turno. Buena si tu equipo pega más fuerte que el rival.',
     cage: 'Cinco al frente y el resto cerca del portador. La más segura para controlar el balón.',
     spread: 'Línea abierta y receptores en las bandas. Para equipos de pase y velocidad, con más riesgo.',
-    flank: 'Ocho jugadores cargan por una banda. Rápida, útil si el rival está cargado al otro lado.'
-  }, 'Formaciones de ataque (cuando recibes)', 'Cuando recibes la patada, tu formación decide si podrás armar un cage, pasar o pegar. ' + FORM_RULES, 'si dudas, <b>Cage lento</b>. Con un equipo veloz y buenos receptores, prueba <b>Abierto</b>. <b>Frente completo</b> solo si te sobra fuerza.');
-  const FORM_DEF = () => formsHtml('def', ['std', 'five', 'wall', 'wide', 'open', 'deep'], {
+    flank: 'Ocho jugadores cargan por una banda (la del lado con menos rivales). Rápida.' },
+    tip: 'si dudas, <b>Cage lento</b>. Con un equipo veloz y buenos receptores, prueba <b>Abierto</b>. <b>Frente completo</b> solo si te sobra fuerza.' };
+  const FORM_DEF = { kind: 'def', keys: ['std', 'five', 'wall', 'wide', 'open', 'deep'], notes: {
     std: 'Tres en la línea, pantalla ancha a dos casillas y los valiosos atrás. Sirve casi siempre.',
     five: 'Tres al frente, tres en tercera línea y los cinco más valiosos protegidos. Muy sólida.',
     wall: 'Todo compacto al centro. Fuerte de frente, débil por las bandas.',
     wide: 'Línea abierta: al rival le cuesta juntar asistencias, pero deja huecos.',
     open: 'Deja huecos para que no armen un cage. Los obliga a arriesgar el balón.',
-    deep: 'Todos lejos del rival. Casi no hay bajas, pero cedes campo.'
-  }, 'Formaciones de defensa (cuando pateas)', 'Cuando pateas, tu formación decide cuánto campo cedes y qué tan difícil es llegar al portador. ' + FORM_RULES, 'si dudas, <b>Estándar</b> o <b>Regla de cinco</b>. Contra un equipo que pega mucho, <b>Retaguardia</b> evita regalar bajas. Contra un cage, <b>Medio abierto</b>.');
+    deep: 'Todos lejos del rival. Casi no hay bajas, pero cedes campo.' },
+    tip: 'si dudas, <b>Estándar</b> o <b>Regla de cinco</b>. Contra un equipo que pega mucho, <b>Retaguardia</b> evita regalar bajas. Contra un cage, <b>Medio abierto</b>.' };
+  /* arma a los Humanos en la formación elegida y a los Orcos en la suya por defecto */
+  function showForm(I, key) {
+    const att = I.kind === 'att', clear = ti => { for (const p of G.teams[ti].players) if (p.loc === 'pitch') { p.loc = 'reserve'; p.x = p.y = -1; p.state = 'standing'; } };
+    clear(0); clear(1); autoSetup(1, att);   // si yo ataco, los orcos patean
+    if (FORMS[I.kind][key].slots) planSetup(0, !att, key); else autoSetup(0, !att);
+    G.ball.carrier = null; G.ball.x = G.ball.y = -1; tut.fKey = key; tut.fShown = null; refresh(); draw();
+  }
   const LESSONS = [
     { title: 'Moverte y esprintar',
       intro: 'Tú eres el equipo azul y juegas hacia la derecha. Cada jugador tiene un valor de <b>Movimiento (MA)</b>: cuántas casillas puede avanzar en su activación. Las casillas <b>verdes</b> se alcanzan sin tirar dados.',
@@ -4228,8 +4226,8 @@ if (!HEADLESS) (function () {
       afterAI(o, r) { if (G.td === 1) return ['fail', '<b class="ct-bad">La IA anotó.</b> Se coló por un hueco de la línea. Mantén las zonas de defensa solapadas y bloquea al portador cuando se acerque. Reintenta.']; return r === 3 ? 'won' : null; },
       done: 'Una pantalla limita por dónde puede correr el rival. Cuanto más ancha y más adelantada, más tiempo ganas para llegar al portador.' }
     ,
-    { title: 'Formaciones de ataque', info: FORM_ATT, steps: [], setup() {}, done: '' },
-    { title: 'Formaciones de defensa', info: FORM_DEF, steps: [], setup() {}, done: '' }
+    { title: 'Formaciones de ataque', info: FORM_ATT, intro: 'Una formación es cómo ubicas a tus 11 jugadores antes de la patada. Aquí tienes las que ofrece el juego, <b>armadas en la cancha</b>: toca una para verla. Cuando <b>recibes</b>, la formación decide si podrás armar un cage, pasar o pegar. ' + FORM_RULES, steps: [], setup() {}, done: '' },
+    { title: 'Formaciones de defensa', info: FORM_DEF, intro: 'Aquí ves las formaciones de defensa <b>armadas en la cancha</b>: toca una para verla. Cuando <b>pateas</b>, la formación decide cuánto campo cedes y qué tan difícil es llegar al portador. ' + FORM_RULES, steps: [], setup() {}, done: '' }
   ];
 
   function lessonSteps() { const L = tut.L; return L.steps.map(s => ({ s, ok: !!s.ok(tut.o) })); }
@@ -4238,8 +4236,12 @@ if (!HEADLESS) (function () {
     const L = tut.L;
     if (ui.sel) tut.o.seen.add(ui.sel);
     if (L.info) {
-      if (!tut.infoOpen) { $('ctStep').innerHTML = 'Cuando termines de mirar, aprieta <b>Siguiente</b>. <i>Reiniciar</i> vuelve a mostrar el cuadro.'; $('ctNext').hidden = false; }
-      return;
+      const I = L.info, k = tut.fKey || I.keys[0];
+      if (tut.fShown !== k) {
+        tut.fShown = k; const f = FORMS[I.kind][k];
+        $('ctStep').innerHTML = '<div class="fch">' + I.keys.map(x => `<button data-f="${x}" class="${x === k ? 'on' : ''}">${FORMS[I.kind][x].name}</button>`).join('') + `</div><div><b>${f.name}.</b> ${I.notes[k]}</div><div style="margin-top:4px"><b>Recomendación:</b> ${I.tip}</div><div class="ct-sub">Cuando termines, aprieta Siguiente.</div>`;
+      }
+      $('ctNext').hidden = false; return;
     }
     if (L.turns) {
       if (ui.phase !== 'turn' || tut.aiRun) return;
@@ -4332,13 +4334,13 @@ if (!HEADLESS) (function () {
     $('log').innerHTML = ''; ulog = []; card(null); resize(); refresh();
     msg('<b>Lección.</b> Sigue las indicaciones del cartel.');
     if (L.turns) { const g = tut.gen; (async () => { await playTurn(0, true); if (g === tut.gen) tutRounds(g); })(); }
-    if (L.info) { tut.infoOpen = true; ui.phase = 'idle'; msg('<b>Formaciones.</b> Mira el cuadro y aprieta "Siguiente".'); const g = tut.gen; ask(L.info(), [{ label: 'Entendido', value: 1, primary: true }], true).then(() => { if (g === tut.gen) tut.infoOpen = false; }); }
+    if (L.info) { ui.phase = 'idle'; tut.fShown = null; showForm(L.info, L.info.keys[0]); msg('<b>Formaciones.</b> Toca una formación en el cartel para verla en la cancha.'); }
     tutStatus();
   }
   function tutCartel() {
     const L = tut.L;
     $('ctK').textContent = `Lección ${tut.i + 1} de ${LESSONS.length}`;
-    $('ctT').textContent = L.title; $('ctX').innerHTML = L.info ? 'Una formación es cómo ubicas a tus 11 jugadores antes de la patada. Aquí tienes las que ofrece el juego y cuándo conviene cada una.' : (typeof L.intro === 'function' ? L.intro() : L.intro);
+    $('ctT').textContent = L.title; $('ctX').innerHTML = typeof L.intro === 'function' ? L.intro() : L.intro;
   }
   function runLesson(i) {
     tut.i = i; tut.L = LESSONS[i]; tutCartel(); tutSetup();
@@ -4352,6 +4354,7 @@ if (!HEADLESS) (function () {
     $('ctRetry').onclick = () => { if (ui.busy || tut.aiRun) return; tutSetup(); };
     $('ctSkip').onclick = () => { if (tut.aiRun) return; const r = tut.res; tut.res = null; if (r) r('next'); };
     $('ctExit').onclick = () => { if (tut.aiRun) return; const r = tut.res; tut.res = null; if (r) r('exit'); };
+    $('ctStep').onclick = e => { const b = e.target.closest('button[data-f]'); if (b && tut.L && tut.L.info) showForm(tut.L.info, b.dataset.f); };
     $('ctGlos').onclick = () => { if (ui.busy || tut.aiRun) return; ask(diceGlossary(), [{ label: 'Cerrar', value: 1, primary: true }], true); };
     $('ctHide').onclick = () => { $('cartel').classList.toggle('xmin'); };
     $('cartel').classList.toggle('xmin', document.body.classList.contains('mob'));
@@ -4385,7 +4388,7 @@ if (!HEADLESS) (function () {
     d.children[2].onclick = () => d.remove();
     document.body.appendChild(d);
   }
-  const BUILD_ID = '7f5d35675a';
+  const BUILD_ID = '963e646948';
   async function checkUpdate() {   // compara esta versión con la publicada (version.json, siempre desde la red)
     try { const r = await fetch('version.json?chk=' + Date.now(), { cache: 'no-store' }); if (r.ok && (await r.json()).id !== BUILD_ID) offerUpdate(); } catch (e) { }
   }
