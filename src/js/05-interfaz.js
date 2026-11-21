@@ -50,7 +50,7 @@ if (!HEADLESS) (function () {
         { transform: `translate(${sx * .45}px,${sy * .45 - 46}px) rotate(${rot * .55}deg) scale(1.3)`, opacity: 1, offset: .5 },
         { transform: `translate(0,0) rotate(${rot}deg) scale(1)`, opacity: 1 }], { duration: dur, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'forwards' }));
       const tm = setInterval(() => { im.src = ASSETS['d_' + FXF[Math.floor(Math.random() * 5)]]; }, 75);
-      anims[i].finished.then(() => { clearInterval(tm); im.src = ASSETS['d_' + f]; el.style.transform = 'none'; el.animate([{ transform: 'scale(1.18)' }, { transform: 'scale(1)' }], { duration: 160 }); }).catch(() => clearInterval(tm));
+      anims[i].finished.then(() => { clearInterval(tm); im.src = ASSETS['d_' + f]; el.style.transform = 'none'; if (typeof tut !== 'undefined' && tut.on) { const lb = document.createElement('span'); lb.className = 'fxl ' + (box.dataset.above === '1' ? 'dn' : 'up'); lb.textContent = FACE_TXT[f]; el.appendChild(lb); } el.animate([{ transform: 'scale(1.18)' }, { transform: 'scale(1)' }], { duration: 160 }); }).catch(() => clearInterval(tm));
     });
     await Promise.all(anims.map(x => x.finished.catch(() => 0)));
     await fxWait(450);
@@ -196,8 +196,10 @@ if (!HEADLESS) (function () {
       const rr = canRR ? [{ label: `Repetir con reroll (quedan ${rrLeft(G.teams[this.t])})`, value: 'reroll' }] : [];
       const who = `<b>${nm(att)} bloquea a ${nm(def)}.</b> `;
       if (attChooses) {
-        if (dice.length === 1 && !canRR) return 0;
-        if (dice.length === 1) { const r = inlineDice(1, who + 'Un solo dado: acéptalo o repite con reroll.', false, [{ label: 'Aceptar', value: 0, primary: true }, ...rr]); if (r) return r; return ask(head + diceHtml(dice, false), [{ label: 'Aceptar', value: 0, primary: true }, ...rr]); }
+        const tutOn = typeof tut !== 'undefined' && tut.on;
+        if (dice.length === 1 && !canRR && !tutOn) return 0;
+        if (dice.length === 1 && !canRR) { const r = inlineDice(1, who + 'Un solo dado: haz clic en él para aceptarlo.', true, null); if (r) { await r; return 0; } return ask(head + '<p>Un solo dado: acéptalo.</p>' + diceHtml(dice, false), [{ label: 'Aceptar', value: 0, primary: true }]); }
+        if (dice.length === 1) { const r = inlineDice(1, who + 'Un solo dado: haz clic en él (o en Aceptar), o repite con reroll.', tutOn, [{ label: 'Aceptar', value: 0, primary: true }, ...rr]); if (r) return r; return ask(head + diceHtml(dice, false), [{ label: 'Aceptar', value: 0, primary: true }, ...rr]); }
         const r = inlineDice(dice.length, who + 'Elige un dado haciendo clic en él' + (canRR ? ', o repite con reroll.' : '.'), true, rr); if (r) return r;
         return ask(head + '<p>Elige un dado:</p>' + diceHtml(dice, true), rr);
       }
@@ -206,7 +208,7 @@ if (!HEADLESS) (function () {
       return ask(head + '<p>El rival elegirá el dado.</p>' + diceHtml(dice, false), [{ label: 'Aceptar', value: 0, primary: true }, ...rr]);
     }
     async chooseDefDie(dice, att, def) {
-      if (dice.length === 1) return 0;
+      if (dice.length === 1) { if (typeof tut === 'undefined' || !tut.on) return 0; const r = inlineDice(1, `<b>${nm(att)} bloquea a ${nm(def)}.</b> Un solo dado: haz clic en él para aceptarlo.`, true, null); if (r) await r; return 0; }
       const r = inlineDice(dice.length, `<b>${nm(att)} bloquea a ${nm(def)}.</b> Tu jugador es más fuerte: elige el dado haciendo clic en él.`, true, null); if (r) return r;
       return ask(`<h2>${nm(att)} bloquea a ${nm(def)}</h2><p>Tu jugador es más fuerte: eliges tú el dado.</p>` + diceHtml(dice, true), []);
     }
