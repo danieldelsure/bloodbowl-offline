@@ -26,29 +26,51 @@
   const diceGlossary = () => '<h2>Los dados de bloqueo</h2><table><tr><th></th><th>Cara</th><th>Qué pasa</th><th class="n">Por dado</th></tr>' + DICE_INFO.map(d => `<tr><td><img src="${ASSETS['d_' + d[0]]}" alt="" width="30" height="30" style="image-rendering:pixelated"></td><td>${d[1]}</td><td>${d[2]}</td><td class="n">${d[3]}</td></tr>`).join('') + '</table>' +
     '<p><b>Cuántos dados se tiran</b> (se comparan las Fuerzas, con las asistencias ya sumadas):</p><table><tr><td>Fuerzas iguales</td><td>1 dado</td><td>eliges tú</td></tr><tr><td>Atacante más fuerte</td><td>2 dados</td><td>eliges tú</td></tr><tr><td>Atacante con más del doble</td><td>3 dados</td><td>eliges tú</td></tr><tr><td>Atacante más débil</td><td>2 dados</td><td>elige el rival</td></tr><tr><td>Atacante con menos de la mitad</td><td>3 dados</td><td>elige el rival</td></tr></table>' +
     '<p class="sub">Esquivar y recoger: tiras un dado de 6 y necesitas tu Agilidad o más. Cada rival que marque la casilla de destino suma 1 al número que necesitas. Un 6 siempre sale bien y un 1 siempre falla.</p>';
-  /* formaciones: se ven armadas en la cancha, con las formaciones reales del juego */
+  /* formaciones y demostraciones: se ven armadas en la cancha, con un selector en el cartel */
   const FORM_RULES = 'Al armar la formación se exige tener <b>al menos 3 jugadores en la línea de scrimmage</b> (si tienes) y <b>no más de 2 en cada banda lateral</b> (las franjas de arriba y abajo).';
-  const FORM_ATT = { kind: 'att', keys: ['front', 'cage', 'spread', 'flank'], notes: {
+  const clearT = ti => { for (const p of G.teams[ti].players) if (p.loc === 'pitch') { p.loc = 'reserve'; p.x = p.y = -1; p.state = 'standing'; } };
+  function showForm(kind, key) {
+    const att = kind === 'att'; clearT(0); clearT(1); autoSetup(1, att);   // si yo ataco, los orcos patean
+    if (FORMS[kind][key].slots) planSetup(0, !att, key); else autoSetup(0, !att);
+    G.ball.carrier = null; G.ball.x = G.ball.y = -1; refresh(); draw();
+  }
+  /* demostración con posiciones a mano: humanos, orcos (si no se da, los orcos reciben con su formación normal) */
+  function demo(hum, orc) {
+    clearT(0); clearT(1); if (orc) orc.forEach(([x, y]) => TPx(1, x, y)); else autoSetup(1, false);
+    hum.forEach(([x, y]) => TPx(0, x, y)); G.ball.carrier = null; G.ball.x = G.ball.y = -1; refresh(); draw();
+  }
+  const formItems = (kind, keys, notes) => keys.map(k => ({ k, name: FORMS[kind][k].name, note: notes[k], show: () => showForm(kind, k) }));
+  const INFO_ATT = { items: formItems('att', ['front', 'cage', 'spread', 'flank'], {
     front: 'Todos al frente para pegar en el primer turno. Buena si tu equipo pega más fuerte que el rival.',
     cage: 'Cinco al frente y el resto cerca del portador. La más segura para controlar el balón.',
     spread: 'Línea abierta y receptores en las bandas. Para equipos de pase y velocidad, con más riesgo.',
-    flank: 'Ocho jugadores cargan por una banda (la del lado con menos rivales). Rápida.' },
+    flank: 'Ocho jugadores cargan por una banda (la del lado con menos rivales). Rápida.' }),
     tip: 'si dudas, <b>Cage lento</b>. Con un equipo veloz y buenos receptores, prueba <b>Abierto</b>. <b>Frente completo</b> solo si te sobra fuerza.' };
-  const FORM_DEF = { kind: 'def', keys: ['std', 'five', 'wall', 'wide', 'open', 'deep'], notes: {
+  const INFO_DEF = { items: formItems('def', ['std', 'five', 'chev', 'zigg', 'bunk', 'mixed', 'wall', 'wide', 'open', 'deep'], {
     std: 'Tres en la línea, pantalla ancha a dos casillas y los valiosos atrás. Sirve casi siempre.',
-    five: 'Tres al frente, tres en tercera línea y los cinco más valiosos protegidos. Muy sólida.',
+    five: 'El "bote": tres al frente, tres en tercera línea y los cinco más valiosos protegidos. Muy sólida, pero cede las bandas.',
+    chev: 'Línea corta al centro y una "V" detrás. Mezcla control, protección y reacción. Depende de que la línea aguante.',
+    zigg: 'Como el chevron, con más control del medio campo. Deja sin protección al seguro de la tercera columna.',
+    bunk: 'Protege varios seguros y deja solo cuatro expuestos, con control de las bandas. Buena en el primer turno.',
+    mixed: 'Línea a un lado y fondo asimétrico. Buena si pateas con Kick y el rival no pasa bien. Se puede invertir.',
     wall: 'Todo compacto al centro. Fuerte de frente, débil por las bandas.',
     wide: 'Línea abierta: al rival le cuesta juntar asistencias, pero deja huecos.',
     open: 'Deja huecos para que no armen un cage. Los obliga a arriesgar el balón.',
-    deep: 'Todos lejos del rival. Casi no hay bajas, pero cedes campo.' },
-    tip: 'si dudas, <b>Estándar</b> o <b>Regla de cinco</b>. Contra un equipo que pega mucho, <b>Retaguardia</b> evita regalar bajas. Contra un cage, <b>Medio abierto</b>.' };
-  /* arma a los Humanos en la formación elegida y a los Orcos en la suya por defecto */
-  function showForm(I, key) {
-    const att = I.kind === 'att', clear = ti => { for (const p of G.teams[ti].players) if (p.loc === 'pitch') { p.loc = 'reserve'; p.x = p.y = -1; p.state = 'standing'; } };
-    clear(0); clear(1); autoSetup(1, att);   // si yo ataco, los orcos patean
-    if (FORMS[I.kind][key].slots) planSetup(0, !att, key); else autoSetup(0, !att);
-    G.ball.carrier = null; G.ball.x = G.ball.y = -1; tut.fKey = key; tut.fShown = null; refresh(); draw();
-  }
+    deep: 'Todos lejos del rival. Casi no hay bajas, pero cedes campo.' }),
+    tip: 'si dudas, <b>Estándar</b> o el <b>bote</b> (Regla de cinco). Contra un equipo que pega mucho, <b>Retaguardia</b> evita regalar bajas. Contra un cage, <b>Medio abierto</b>. Los <b>búnkers</b> y el <b>chevron</b> son los más usados en el primer turno.' };
+  const LOS3 = [[12, 6], [12, 7], [12, 8]];
+  const INFO_PRIN = { items: [
+    { k: 'line', name: 'Línea y espina', note: 'Todos en la misma fila con dos casillas vacías entre cada uno: sus zonas se tocan y se apoyan con asistencias. Cinco jugadores así (uno al centro, dos a 3 casillas y dos a 6) cubren todo el ancho: es la "espina" de la cancha. En las bandas, no te extiendas si el último jugador se puede empujar fácilmente.', show: () => demo(LOS3.concat([[9, 1], [9, 4], [9, 7], [9, 10], [9, 13]])) },
+    { k: 'trap', name: 'Trampa', note: 'Parejas en diagonal. Cubren el mismo ancho que la línea y protegen a quien queda detrás, pero el jugador de adelante está solo si le hacen blitz: nadie lo asiste. Es la base del chevron.', show: () => demo(LOS3.concat([[9, 1], [8, 2], [9, 4], [8, 5], [9, 7], [8, 8], [9, 10], [8, 11]])) },
+    { k: 'stack', name: 'Columna', note: 'Parejas una detrás de otra. Es la más difícil de abrir a empujones, pero cubre una casilla menos de ancho, y el de atrás no puede proteger ni vengar al de adelante.', show: () => demo(LOS3.concat([[9, 2], [8, 2], [9, 5], [8, 5], [9, 8], [8, 8], [9, 11], [8, 11]])) },
+    { k: 'buddy', name: 'Compañeros', note: 'Que ningún jugador expuesto quede sin un compañero con zona sobre él. Si le hacen blitz y lo sacan, el compañero puede devolver el golpe y el rival se queda con menos opciones. Es una guía, no una regla.', show: () => demo(LOS3.concat([[10, 3], [9, 4], [10, 7], [9, 8], [10, 11], [9, 12]])) }],
+    tip: 'una pantalla son dos compañeros con no más de dos casillas vacías entre ellos, de modo que sus zonas se tocan. <b>Un jugador marcado por un rival no cuenta como parte de la pantalla</b>, porque lo pueden tumbar o empujar. Pregúntate siempre: si le hacen blitz a este, ¿qué pasa?' };
+  const ORC_BACK = [[16, 5], [16, 7], [16, 9]];
+  const INFO_LOS = { items: [
+    { k: '101', name: 'Línea 101', note: 'Los tres pegados al centro: la mejor forma de concentrar fuerza y evitar trucos. Para atacarla: un bloqueador frente a cada uno y un jugador de apoyo en cada extremo. Haz un primer golpe por un costado; cuando cae o es empujado, el que golpeó asiste al del medio.', show: () => demo([[12, 5], [12, 6], [12, 7], [12, 8], [12, 9], [10, 6], [10, 7], [10, 8]], [[13, 6], [13, 7], [13, 8]].concat(ORC_BACK)) },
+    { k: '202', name: 'Línea 202', note: 'Dos huecos entre cada uno. La ven mucho los novatos y suele ser un error: le da al atacante el máximo de apoyo en cada bloqueo de línea y no controla más territorio.', show: () => demo([[12, 4], [12, 5], [12, 6], [12, 7], [12, 8], [12, 9], [12, 10], [10, 7]], [[13, 5], [13, 7], [13, 9]].concat(ORC_BACK)) },
+    { k: '303', name: 'Línea 303', note: 'La más ancha: cubre más cancha, pero los tres quedan separados. Se puede rodear y bloquear a cada uno por su lado. Cuidado con gastar demasiados jugadores en bloqueos de 3 dados solo porque se puede.', show: () => demo([[12, 4], [12, 5], [12, 7], [12, 8], [12, 9], [12, 10], [10, 7]], [[13, 4], [13, 7], [13, 10]].concat(ORC_BACK)) }],
+    tip: 'bloquea a los tres de la línea con <b>2 dados como mínimo</b>, mejor con jugadores con <i>Block</i>. Si hay un rival fuerte que no quieres bloquear, deja un jugador "de sacrificio" marcándolo, por si sale <b>Blitz</b>. En la patada, <b>Defensa sólida</b> y <b>Blitz</b> salen 1 de cada 12 y <b>Saque rápido</b> 1 de cada 9: no dejes un camino directo al centro de tu campo.' };
   const LESSONS = [
     { title: 'Moverte y esprintar',
       intro: 'Tú eres el equipo azul y juegas hacia la derecha. Cada jugador tiene un valor de <b>Movimiento (MA)</b>: cuántas casillas puede avanzar en su activación. Las casillas <b>verdes</b> se alcanzan sin tirar dados.',
@@ -152,8 +174,10 @@
       afterAI(o, r) { if (G.td === 1) return ['fail', '<b class="ct-bad">La IA anotó.</b> Se coló por un hueco de la línea. Mantén las zonas de defensa solapadas y bloquea al portador cuando se acerque. Reintenta.']; return r === 3 ? 'won' : null; },
       done: 'Una pantalla limita por dónde puede correr el rival. Cuanto más ancha y más adelantada, más tiempo ganas para llegar al portador.' }
     ,
-    { title: 'Formaciones de ataque', info: FORM_ATT, intro: 'Una formación es cómo ubicas a tus 11 jugadores antes de la patada. Aquí tienes las que ofrece el juego, <b>armadas en la cancha</b>: toca una para verla. Cuando <b>recibes</b>, la formación decide si podrás armar un cage, pasar o pegar. ' + FORM_RULES, steps: [], setup() {}, done: '' },
-    { title: 'Formaciones de defensa', info: FORM_DEF, intro: 'Aquí ves las formaciones de defensa <b>armadas en la cancha</b>: toca una para verla. Cuando <b>pateas</b>, la formación decide cuánto campo cedes y qué tan difícil es llegar al portador. ' + FORM_RULES, steps: [], setup() {}, done: '' }
+    { title: 'La línea de scrimmage', info: INFO_LOS, intro: 'La <b>línea de scrimmage</b> es la fila pegada al centro. Quien patea debe poner al menos 3 jugadores ahí, y se nombran por su separación: <b>101</b> (pegados), <b>202</b> y <b>303</b> (lo más abiertos posible). Aquí ves cómo se arma tu ataque contra cada una, <b>en la cancha</b>: toca una para verla.', steps: [], setup() {}, done: '' },
+    { title: 'Formaciones de ataque', info: INFO_ATT, intro: 'Una formación es cómo ubicas a tus 11 jugadores antes de la patada. Aquí tienes las de ataque que ofrece el juego, <b>armadas en la cancha</b>: toca una para verla. Cuando <b>recibes</b>, la formación decide si podrás armar un cage, pasar o pegar. ' + FORM_RULES, steps: [], setup() {}, done: '' },
+    { title: 'Principios de defensa', info: INFO_PRIN, intro: 'Casi toda defensa se basa en la <b>pantalla</b>: dos compañeros con no más de dos casillas vacías entre ellos, de modo que sus zonas de defensa se tocan o se cruzan. Hay tres formas de combinarlas, más la regla de los compañeros. Toca cada una para verla <b>en la cancha</b>.', steps: [], setup() {}, done: '' },
+    { title: 'Formaciones de defensa', info: INFO_DEF, intro: 'Aquí ves las defensas que ofrece el juego, <b>armadas en la cancha</b>: toca una para verla. Cuando <b>pateas</b>, la formación decide cuánto campo cedes y qué tan difícil es llegar al portador. ' + FORM_RULES, steps: [], setup() {}, done: '' }
   ];
 
   function lessonSteps() { const L = tut.L; return L.steps.map(s => ({ s, ok: !!s.ok(tut.o) })); }
@@ -162,10 +186,10 @@
     const L = tut.L;
     if (ui.sel) tut.o.seen.add(ui.sel);
     if (L.info) {
-      const I = L.info, k = tut.fKey || I.keys[0];
+      const I = L.info, k = tut.fKey || I.items[0].k;
       if (tut.fShown !== k) {
-        tut.fShown = k; const f = FORMS[I.kind][k];
-        $('ctStep').innerHTML = '<div class="fch">' + I.keys.map(x => `<button data-f="${x}" class="${x === k ? 'on' : ''}">${FORMS[I.kind][x].name}</button>`).join('') + `</div><div><b>${f.name}.</b> ${I.notes[k]}</div><div style="margin-top:4px"><b>Recomendación:</b> ${I.tip}</div><div class="ct-sub">Cuando termines, aprieta Siguiente.</div>`;
+        tut.fShown = k; const it = I.items.find(x => x.k === k);
+        $('ctStep').innerHTML = '<div class="fch">' + I.items.map(x => `<button data-f="${x.k}" class="${x.k === k ? 'on' : ''}">${x.name}</button>`).join('') + `</div><div><b>${it.name}.</b> ${it.note}</div><div style="margin-top:4px"><b>Recomendación:</b> ${I.tip}</div><div class="ct-sub">Cuando termines, aprieta Siguiente.</div>`;
       }
       $('ctNext').hidden = false; return;
     }
@@ -260,12 +284,13 @@
     $('log').innerHTML = ''; ulog = []; card(null); resize(); refresh();
     msg('<b>Lección.</b> Sigue las indicaciones del cartel.');
     if (L.turns) { const g = tut.gen; (async () => { await playTurn(0, true); if (g === tut.gen) tutRounds(g); })(); }
-    if (L.info) { ui.phase = 'idle'; tut.fShown = null; showForm(L.info, L.info.keys[0]); msg('<b>Formaciones.</b> Toca una formación en el cartel para verla en la cancha.'); }
+    if (L.info) { ui.phase = 'idle'; tut.fShown = null; tut.fKey = L.info.items[0].k; L.info.items[0].show(); msg('<b>Demostración.</b> Toca una opción en el cartel para verla en la cancha.'); }
     tutStatus();
   }
   function tutCartel() {
     const L = tut.L;
     $('ctK').textContent = `Lección ${tut.i + 1} de ${LESSONS.length}`;
+    if (!document.body.classList.contains('mob')) $('cartel').classList.remove('xmin');
     $('ctT').textContent = L.title; $('ctX').innerHTML = typeof L.intro === 'function' ? L.intro() : L.intro;
   }
   function runLesson(i) {
@@ -280,7 +305,7 @@
     $('ctRetry').onclick = () => { if (ui.busy || tut.aiRun) return; tutSetup(); };
     $('ctSkip').onclick = () => { if (tut.aiRun) return; const r = tut.res; tut.res = null; if (r) r('next'); };
     $('ctExit').onclick = () => { if (tut.aiRun) return; const r = tut.res; tut.res = null; if (r) r('exit'); };
-    $('ctStep').onclick = e => { const b = e.target.closest('button[data-f]'); if (b && tut.L && tut.L.info) showForm(tut.L.info, b.dataset.f); };
+    $('ctStep').onclick = e => { const b = e.target.closest('button[data-f]'); if (b && tut.L && tut.L.info) { const it = tut.L.info.items.find(x => x.k === b.dataset.f); if (it) { tut.fKey = it.k; tut.fShown = null; it.show(); if (!document.body.classList.contains('mob')) $('cartel').classList.add('xmin'); } } };
     $('ctGlos').onclick = () => { if (ui.busy || tut.aiRun) return; ask(diceGlossary(), [{ label: 'Cerrar', value: 1, primary: true }], true); };
     $('ctHide').onclick = () => { $('cartel').classList.toggle('xmin'); };
     $('cartel').classList.toggle('xmin', document.body.classList.contains('mob'));
