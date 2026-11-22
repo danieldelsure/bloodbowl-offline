@@ -865,26 +865,28 @@ if (!HEADLESS) (function () {
     $('dfx').style.display = prev.dfx; dugSig = ['', '']; header(); buttons(); draw(); card(null); showSel(); msg(prev.msg);
   }
   async function pauseMenu() {
-    if (reviewing || !G || G.phase === 'over' || ui.phase === 'menu' || !$('modal').hidden || !lastSnap || !(G.mgr || G.teams[0].ctrl instanceof Human)) return;
+    if (reviewing || !G || G.phase === 'over' || ui.phase === 'menu' || !$('modal').hidden || (!lastSnap && curMode !== 'tutorial') || !(G.mgr || G.teams[0].ctrl instanceof Human)) return;
     setPause(true);
+    const tutM = curMode === 'tutorial';
     const live = ui.phase === 'turn' && !ui.busy && !ui.pick && G.phase === 'turn' && G.active === 0;
-    const where = lastSnap.k === 'drive' ? 'la formación de esta entrada' : `el inicio de este turno de ${G.teams[lastSnap.a].name}`;
+    const where = !lastSnap ? '' : lastSnap.k === 'drive' ? 'la formación de esta entrada' : `el inicio de este turno de ${G.teams[lastSnap.a].name}`;
     const note = live ? 'Se guarda la partida tal como está ahora.' : `Hay una jugada en curso: se guarda desde ${where}.`;
     let c;
     for (;;) {
-      c = await ask(`<h2>Pausa</h2><p>${matchDesc()}</p><p class="sub">${note}</p>`,
+      c = await ask(`<h2>Pausa</h2><p>${matchDesc()}</p><p class="sub">${tutM ? 'Es la práctica del tutorial: no se guarda.' : note}</p>`,
+      tutM ? [{ label: 'Continuar', value: 'go', primary: true }, { label: 'Ver tutorial de la pantalla', value: 'tut' }, { label: 'Salir al menú', value: 'quit' }] :
       [{ label: 'Continuar', value: 'go', primary: true }, { label: 'Ver turnos anteriores', value: 'rev' }, { label: 'Ver tutorial de la pantalla', value: 'tut' }, { label: 'Guardar partida', value: 'save' }, { label: 'Guardar y volver al menú', value: 'savemenu' }, { label: 'Descargar archivo de guardado', value: 'dl' }, { label: 'Salir sin guardar', value: 'quit' }]);
       if (c !== 'rev' && c !== 'tut') break;
       if (c === 'rev') await reviewTurns(); else await tutorial();
     }
-    const snap = live ? { k: 'turn', a: 0, str: snapG(), desc: matchDesc() } : lastSnap;
+    const snap = tutM ? null : live ? { k: 'turn', a: 0, str: snapG(), desc: matchDesc() } : lastSnap;
     if (c === 'save' || c === 'savemenu' || c === 'dl') {
       const ok = storeMatch(snap, live);
       if (!ok) { await ask('<h2>No se pudo guardar</h2><p>El navegador no permite guardar en este archivo. Revisa que el almacenamiento local esté habilitado.</p>', [{ label: 'Entendido', value: 1, primary: true }]); setPause(false); return; }
       if (c === 'savemenu') { location.reload(); return; }
       if (c === 'dl') { downloadSave(); onLog('Guardado descargado', 'good'); } else onLog('Partida guardada', 'good');
     } else if (c === 'quit') {
-      if (await ask('<h2>Salir sin guardar</h2><p>Se pierde el avance de este partido (el torneo se mantiene en la ronda actual).</p>', [{ label: 'Salir al menú', value: 1, primary: true }, { label: 'Volver', value: 0 }])) { dropMatch(); location.reload(); return; }
+      if (await ask(tutM ? '<h2>Salir de la práctica</h2><p>Se termina este partido de práctica y vuelves al menú.</p>' : '<h2>Salir sin guardar</h2><p>Se pierde el avance de este partido (el torneo se mantiene en la ronda actual).</p>', [{ label: 'Salir al menú', value: 1, primary: true }, { label: 'Volver', value: 0 }])) { dropMatch(); location.reload(); return; }
     }
     setPause(false);
   }

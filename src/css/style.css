@@ -483,3 +483,15 @@ body.mob #cartel .dg div{font-size:10px}
 body.mob #cartel .fch button{padding:4px 7px;font-size:11px}
 body.mob #cartel .fch{gap:4px}
 body.mob #cartel .fch button{padding:4px 8px!important;font-size:12px!important;min-height:0!important;height:auto!important;width:auto!important;line-height:1.2!important;flex:0 0 auto}
+
+/* menú del tutorial por secciones */
+.tm-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.tm-sec{border:2px solid var(--ink);padding:8px 10px;display:flex;flex-direction:column;gap:5px}
+.tm-hd{display:flex;flex-direction:column;gap:2px;margin-bottom:2px}
+.tm-hd b{font:900 20px/1 var(--disp);text-transform:uppercase}
+.tm-hd span{font-size:12.5px;opacity:.75}
+#modalBox .tm-sec button{all:unset;box-sizing:border-box;cursor:pointer;padding:6px 9px;background:#12141710;border:2px solid transparent;font:600 14px/1.25 var(--body)}
+#modalBox .tm-sec button:hover{border-color:var(--ink)}
+#modalBox .tm-sec button.ok{color:#1d7a3a}
+#modalBox .tm-hd button{background:var(--ink);color:var(--bone);font-weight:700;text-align:center;margin-top:4px}
+@media (max-width:760px){.tm-grid{grid-template-columns:1fr}}
