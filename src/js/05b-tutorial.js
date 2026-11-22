@@ -407,8 +407,15 @@
     const done = tutDoneGet(), secs = tutSections();
     const html = `<h2>Aprender a jugar</h2><p class="sub" style="margin:0 0 10px">Elige una sección o una lección suelta. Con "Curso completo" las ves todas en orden. Las que ya superaste quedan marcadas con ✓.</p>` +
       '<div class="tm-grid">' + secs.map((sc, k) => `<div class="tm-sec"><div class="tm-hd"><b>${sc.name}</b><span>${sc.sub}</span><button data-v="${1000 + k}">Ver sección</button></div>` +
-        sc.ids.map(i => `<button class="tm-l${done.includes(LESSONS[i].title) ? ' ok' : ''}" data-v="${i}">${done.includes(LESSONS[i].title) ? '✓ ' : ''}${LESSONS[i].title}</button>`).join('') + '</div>').join('') + '</div>';
-    return ask(html, [{ label: 'Curso completo', value: 2000, primary: true }, { label: 'Partido de medio tiempo', value: 3000 }, { label: 'Volver al menú', value: 4000 }], true, 'teams');
+        sc.ids.map(i => `<button class="tm-l${done.includes(LESSONS[i].title) ? ' ok' : ''}" data-v="${i}">${done.includes(LESSONS[i].title) ? '✓ ' : ''}${LESSONS[i].title}</button>`).join('') + '</div>').join('') + '</div>'
+    const html2 = html + '<p class="sub" style="margin:10px 0 0">Para ligas y partidas competitivas contra otras personas: <a href="https://fumbbl.com" target="_blank" rel="noopener"><b>fumbbl.com</b></a></p>';
+    return ask(html2, [{ label: 'Curso completo', value: 2000, primary: true }, { label: 'Partido de medio tiempo', value: 3000 }, { label: 'Volver al menú', value: 4000 }], true, 'teams');
+  }
+  const FUMBBL_P = '<p>Este juego sirve para aprender y practicar contra la IA. Si quieres <b>ligas, torneos y partidas competitivas</b> contra otras personas, te recomiendo <b>fumbbl.com</b>, la comunidad online gratuita de Blood Bowl.</p>';
+  async function tutFumbbl(titulo) {
+    $('cartel').hidden = true;
+    const r = await ask(`<h2>${titulo || '¿Quieres jugar en serio?'}</h2>${FUMBBL_P}`, [{ label: 'Abrir fumbbl.com', value: 1, primary: true }, { label: 'Seguir aquí', value: 0 }]);
+    if (r) window.open('https://fumbbl.com', '_blank', 'noopener');
   }
   async function tutorialCourse() {
     curMode = 'tutorial'; tut.on = true; hist = []; $('ctNext').textContent = 'Siguiente'; $('cartel').classList.remove('tip');
@@ -443,6 +450,7 @@
         pos++; if (pos >= list.length) ended = true;
       }
       if (ended && v === 2000) { full = true; break; }
+      if (ended && (v === 1001 || v === 1002)) await tutFumbbl(v === 1001 ? 'Nivel intermedio completo' : '¡Terminaste el avanzado!');
     }
     tut.list = null; tut.secName = '';
     if (out === 'done' && full) {
@@ -451,7 +459,7 @@
       if (go) {
         curMode = 'tutorial'; await playMatch('human', 'orc', null, false, true); tutTipHide();
         const a = G.teams[0].score, b = G.teams[1].score;
-        await ask(`<h2>${a > b ? '¡Buen partido, ganaste!' : a < b ? 'Perdiste, pero así se aprende' : 'Empate'}</h2><p>${G.teams[0].name} ${a}, ${G.teams[1].name} ${b}. Ya puedes jugar el Torneo de Campeones o un partido rápido.</p><p><b>Para llevarte:</b> ${TIPS_END.map(q => `<b>${q.t}.</b> ${q.x}`).join(' ')}</p>`, [{ label: 'Volver al menú', value: 1, primary: true }]);
+        await ask(`<h2>${a > b ? '¡Buen partido, ganaste!' : a < b ? 'Perdiste, pero así se aprende' : 'Empate'}</h2><p>${G.teams[0].name} ${a}, ${G.teams[1].name} ${b}. Ya puedes jugar el Torneo de Campeones o un partido rápido.</p><p><b>Para llevarte:</b> ${TIPS_END.map(q => `<b>${q.t}.</b> ${q.x}`).join(' ')}</p>${FUMBBL_P}`, [{ label: 'Abrir fumbbl.com', value: 2 }, { label: 'Volver al menú', value: 1, primary: true }]).then(r => { if (r === 2) window.open('https://fumbbl.com', '_blank', 'noopener'); });
       }
       return out;
     }
