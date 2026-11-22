@@ -4834,14 +4834,28 @@ if (!HEADLESS) (function () {
       afterHuman(o, r) { const c = G.ball.carrier; if (G.td === 0) return 'won'; if (!c || c.team !== 0) return ['fail', '<b class="ct-bad">Perdiste el balón.</b> Un cage roto deja al portador solo y el rival lo aprovecha. Cierra las esquinas antes de avanzar y reintenta.']; if (r === 3) return c.x >= o.goal ? 'won' : ['fail', '<b class="ct-bad">No alcanzaste la columna dorada en 3 turnos.</b> Avanza todo lo que puedas cada turno sin romper el cage. Reintenta.']; return null; },
       afterAI(o, r) { const c = G.ball.carrier; if (!c || c.team !== 0) return ['fail', '<b class="ct-bad">Los orcos te quitaron el balón.</b> Cierra las esquinas del cage y reintenta.']; return null; },
       done: 'Con el cage armado, para llegar al portador el rival tiene que romper una esquina. Mantenerlo vivo varios turnos gana partidos.' },
-    { title: 'Defender con pantalla (screen)', turns: 3, rr: 0,
-      intro: 'Los jugadores marcan las casillas de su alrededor (su <b>zona de defensa</b>). Si los pones en una línea con <b>un hueco entre cada uno</b>, las zonas se tocan y el rival no tiene dónde pasar sin esquivar o sin ser bloqueado. Aquí defiendes con <b>8 jugadores</b> durante <b>3 turnos</b> de la IA: que no anote.',
-      setup(o) { o.gold = [0, 2, 4, 6, 8, 10, 12, 14].map(y => [9, y]); [[6, 5], [6, 6], [6, 7], [6, 8], [6, 9], [7, 6], [7, 7], [7, 8]].forEach(([x, y]) => TPx(0, x, y)); const e = TPx(1, 17, 7); giveBall(e); TPx(1, 18, 5); TPx(1, 18, 9); TPx(1, 19, 7); },
+    { title: 'Defender con pantalla (screen)', turns: 3, rr: 1,
+      intro: 'Una <b>pantalla</b> no busca tumbar al rival: busca <b>retrasarlo</b>. Se arma en <b>dos líneas</b> separadas por 2 casillas. La primera tiene un hueco entre cada jugador (las zonas de defensa se tocan). La segunda se coloca <b>justo detrás de esos huecos</b>: si tumban a alguien de adelante, el de atrás sigue tapando el paso. Los 2 jugadores que sobran son <b>cazadores</b>: no forman parte de la pantalla, están libres para presionar o robar el balón. Defiendes <b>3 turnos</b> de la IA: que no anote ni rompa tu línea.',
+      setup(o) {
+        o.front = [[10, 4], [10, 6], [10, 8], [10, 10]]; o.back = [[8, 5], [8, 7], [8, 9]]; o.gold = o.front.concat(o.back);
+        [[5, 4], [5, 5], [5, 6], [5, 7], [5, 8], [5, 9], [5, 10], [6, 2], [6, 12], [4, 6], [4, 8]].forEach(([x, y]) => TPx(0, x, y));
+        const e = TPx(1, 17, 7); giveBall(e); TPx(1, 18, 5); TPx(1, 18, 9); TPx(1, 19, 7);
+      },
       hl: (o, r) => r === 1 ? o.gold : [],
-      turnText: (o, r) => r === 1 ? 'El orco con balón viene por el centro. Pon a tus 8 jugadores en las casillas doradas: una línea con un hueco entre cada uno, así sus zonas de defensa cubren todo el ancho. Al terminar, aprieta <b>Terminar turno</b>.' : 'La IA intentó pasar. Reordena la línea: mantén los huecos cubiertos y, si el portador rival quedó cerca, bloquéalo (mejor con asistencias). Si anota, pierdes la lección: aguanta sus 3 turnos.',
-      afterHuman(o, r) { if (r === 1 && !o.gold.every(([x, y]) => { const q = playerAt(x, y); return q && q.team === 0; })) return ['fail', '<b class="ct-bad">La pantalla no estaba armada.</b> Antes de terminar el turno, pon a tus 8 jugadores en las casillas doradas: así el rival no tiene por dónde pasar. Reintenta.']; return null; },
-      afterAI(o, r) { if (G.td === 1) return ['fail', '<b class="ct-bad">La IA anotó.</b> Se coló por un hueco de la línea. Mantén las zonas de defensa solapadas y bloquea al portador cuando se acerque. Reintenta.']; return r === 3 ? 'won' : null; },
-      done: 'Una pantalla limita por dónde puede correr el rival. Cuanto más ancha y más adelantada, más tiempo ganas para llegar al portador.' }
+      turnText: (o, r) => r === 1
+        ? 'Arma la pantalla en las <b>7 casillas doradas</b>: 4 jugadores adelante y 3 detrás de los huecos. Los 2 jugadores restantes quedan como <b>cazadores</b>: ponlos donde quieras (por ejemplo cerca de los costados). Al terminar, aprieta <b>Terminar turno</b>.'
+        : 'La IA avanzó. Ahora <b>retrocede la pantalla una casilla</b> (o dos si el portador se acercó mucho): mueve las dos líneas hacia tu arco, manteniendo los huecos cubiertos por la segunda línea. Usa a los cazadores para bloquear al portador, mejor con asistencias. Si anota o pasa tu primera línea, repites la lección.',
+      afterHuman(o, r) {
+        if (r === 1 && !o.gold.every(([x, y]) => { const q = playerAt(x, y); return q && q.team === 0; })) return ['fail', '<b class="ct-bad">La pantalla no estaba armada.</b> Antes de terminar el turno, pon 4 jugadores en la primera línea y 3 detrás de los huecos (casillas doradas): así el rival no tiene por dónde pasar. Reintenta.'];
+        return null;
+      },
+      afterAI(o, r) {
+        if (G.td === 1) return ['fail', '<b class="ct-bad">La IA anotó.</b> Se coló por un hueco de la pantalla. Mantén las zonas de defensa solapadas, retrocede las dos líneas a la vez y bloquea al portador cuando se acerque. Reintenta.'];
+        const c = G.ball.carrier;
+        if (c && c.team === 1 && c.loc === 'pitch' && c.x < 8) return ['fail', '<b class="ct-bad">Rompieron tu pantalla.</b> El portador pasó las dos líneas. Cuando avanza, retrocede la pantalla completa para que siempre haya alguien entre él y tu zona de anotación. Reintenta.'];
+        return r === 3 ? 'won' : null;
+      },
+      done: 'Una pantalla gana tiempo: dos líneas con respaldo, que retroceden juntas al ritmo del portador, y cazadores libres para presionar. No hay que comprometer a todo el equipo en ella.' }
     ,
     { title: 'Último turno: cuenta las casillas', turns: 1, rr: 1,
       intro: 'Es el <b>último turno</b> de los orcos y tienen el balón. Antes de reaccionar, <b>cuenta</b>: un jugador avanza su <b>MA</b> y puede esprintar <b>2 casillas más</b>. Ese es su alcance máximo. Si lo dejas más lejos del fondo que ese alcance, <b>no puede anotar</b>, aunque nadie lo toque. Y un derribado gasta 3 de MA en levantarse. Empujarlo una casilla hacia atrás puede ser suficiente.',
@@ -5067,7 +5081,7 @@ if (!HEADLESS) (function () {
     d.children[2].onclick = () => d.remove();
     document.body.appendChild(d);
   }
-  const BUILD_ID = 'd2ed8f2505';
+  const BUILD_ID = '423549f4b3';
   async function checkUpdate() {   // compara esta versión con la publicada (version.json, siempre desde la red)
     try { const r = await fetch('version.json?chk=' + Date.now(), { cache: 'no-store' }); if (r.ok && (await r.json()).id !== BUILD_ID) offerUpdate(); } catch (e) { }
   }
