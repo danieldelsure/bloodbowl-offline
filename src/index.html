@@ -24,10 +24,27 @@
 <script>window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments)};</script>
 <script defer src="/_vercel/insights/script.js"></script>
 <style>
+#boot{position:fixed;inset:0;z-index:99999;background:#14110d;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;font-family:Impact,'Arial Narrow',sans-serif;color:#ece6d6;transition:opacity .45s}
+#boot.off{opacity:0;pointer-events:none}
+#boot .bt{font-size:34px;letter-spacing:2px;text-transform:uppercase}
+#boot .bbar{width:min(360px,70vw);height:12px;border:2px solid #ece6d6;border-radius:8px;overflow:hidden;background:#2a241c}
+#boot .bbar i{display:block;height:100%;width:30%;background:#d52b1e;border-radius:6px;animation:bootslide 1.1s ease-in-out infinite}
+#boot .bbar i.det{animation:none;transition:width .25s}
+#boot .bmsg{font:13px/1.2 Arial,sans-serif;opacity:.75;letter-spacing:.5px}
+@keyframes bootslide{0%{margin-left:-30%}100%{margin-left:100%}}
+</style>
+<style>
 /*STYLE*/
 </style>
 </head>
 <body>
+<div id="boot"><div class="bt">BB Chile</div><div class="bbar"><i id="bfill"></i></div><div class="bmsg" id="bmsg">Descargando el juego…</div></div>
+<script>
+window.__boot=function(f){var e=document.getElementById('boot');if(!e)return;var b=document.getElementById('bfill'),m=document.getElementById('bmsg');
+if(f>=1){e.classList.add('off');setTimeout(function(){e.remove()},600);return}
+b.className='det';b.style.marginLeft='0';b.style.width=Math.round(8+f*92)+'%';m.textContent=f>0?'Cargando jugadores '+Math.round(f*100)+'%':'Preparando…'};
+setTimeout(function(){window.__boot&&window.__boot(1)},20000);
+</script>
 <div id="app">
   <div class="deco d1"></div><div class="deco d2"></div>
   <header>

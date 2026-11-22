@@ -10,7 +10,10 @@ if (!HEADLESS) (function () {
 
   /*ASSETS*/
   const IMG = {};
-  for (const k in ASSETS) { const im = new Image(); im.onload = () => { im.ok = true; draw(); }; im.src = ASSETS[k]; IMG[k] = im; }
+  const imgN = Object.keys(ASSETS).length; let imgDone = 0;
+  const bootImg = () => { imgDone++; if (window.__boot) window.__boot(imgDone / imgN); };
+  if (window.__boot) window.__boot(0);
+  for (const k in ASSETS) { const im = new Image(); im.onload = () => { im.ok = true; draw(); bootImg(); }; im.onerror = bootImg; im.src = ASSETS[k]; IMG[k] = im; }
 
   /* ----- modal ----- */
   function ask(html, buttons, wide, cls, after) {
