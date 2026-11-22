@@ -1172,13 +1172,34 @@ if (!HEADLESS) (function () {
   }
   async function quickMatch(rs) {
     curMode = 'quick';
-    const opts = sel => RACE_ORDER.slice().sort((x, y) => ROSTERS[x].name.localeCompare(ROSTERS[y].name, 'es')).map(r => `<option value="${r}"${r === sel ? ' selected' : ''}>${ROSTERS[r].name} (tier ${ROSTERS[r].tier})${ROSTERS[r].prov ? ' · próximamente, provisional' : ''}</option>`).join('');
-    const go = rs ? 1 : await ask(`<h2>Partido rápido</h2><p>Un partido suelto contra la IA con alineaciones de ejemplo.</p>
-      <label for="selMe">Tu equipo</label><select id="selMe">${opts('human')}</select>
-      <label for="selAI">Equipo rival (IA)</label><select id="selAI">${opts('orc')}</select>
-      <label>Modo</label><div class="modeopt"><label><input type="radio" name="mode" value="p" checked>Jugador: tú mueves a tu equipo</label><label><input type="radio" name="mode" value="m">Manager: defines la táctica y la IA juega</label></div>`, [{ label: 'Jugar', value: 1, primary: true }, { label: 'Volver', value: 0 }]);
+    const names = RACE_ORDER.slice().sort((x, y) => ROSTERS[x].name.localeCompare(ROSTERS[y].name, 'es'));
+    let me = 'human', ai = 'orc', slot = 'me';
+    const asTeam = R => ({ players: R.players.map(p => ({ sheet: p.sheet, st: p.st, sk: p.sk, ex: p.ex || [], variant: p.variant || 0 })) });
+    const rosterQ = r => { const R = ROSTERS[r];
+      return `<div class="tp-hd"><div class="tp-trio">${trioHtml(asTeam(R), 96)}</div><div><h3>${R.name}</h3><div class="tp-meta">Tier ${R.tier} · reroll ${R.rrCost}.000</div><p class="sub">${R.rr} rerolls${R.apo ? ' · apotecario' : ''}${R.prov ? ' · lista provisional (GW aún no confirma tier ni reroll)' : ''}</p></div></div><table><tr><th>Posición</th><th class="n">Cant.</th><th class="n">Costo</th><th class="n">MA</th><th class="n">ST</th><th class="n">AG</th><th class="n">PA</th><th class="n">AV</th><th>Habilidades</th></tr>` +
+        R.players.map(p => `<tr><td>${p.pos}</td><td class="n">0-${p.max}</td><td class="n">${p.cost}k</td><td class="n">${p.ma}</td><td class="n">${p.st}</td><td class="n">${p.ag}+</td><td class="n">${p.pa ? p.pa + '+' : '-'}</td><td class="n">${p.av}+</td><td>${p.sk.join(', ') || '-'}</td></tr>`).join('') + '</table>'; };
+    const cards = names.map(r => { const R = ROSTERS[r]; return `<button class="tc" data-r="${r}"><div class="tc-art">${trioHtml(asTeam(R), 64)}</div><b>${R.name}</b><i>Tier ${R.tier}</i><em>${R.prov ? 'Provisional' : R.rr + ' rerolls'}</em></button>`; }).join('');
+    const pr = rs ? null : ask(`<h2>Partido rápido</h2><p class="sub" style="margin:0 0 10px">Un partido suelto contra la IA con alineaciones de ejemplo. Elige tu equipo y el rival entre los ${names.length} equipos.</p>
+      <div class="tp-mode">Modo de juego<div class="modeopt"><label><input type="radio" name="mode" value="p" checked>Jugador: tú mueves a tu equipo</label><label><input type="radio" name="mode" value="m">Manager: defines la táctica y la IA juega</label></div></div>
+      <div class="qm-tabs"><button data-slot="me">Tu equipo<b id="qmMe"></b></button><button data-slot="ai">Rival (IA)<b id="qmAI"></b></button></div>
+      <div class="tp qm2"><div class="tp-grid">${cards}</div><div class="tp-side"><div id="rosterPrev"></div></div></div>`,
+      [{ label: 'Jugar', value: 1, primary: true }, { label: 'Volver', value: 0 }], true, 'teams', () => {
+        const box = $('modalBody');
+        const cur = () => slot === 'me' ? me : ai;
+        const upd = () => {
+          $('qmMe').textContent = ROSTERS[me].name; $('qmAI').textContent = ROSTERS[ai].name;
+          box.querySelectorAll('.qm-tabs button').forEach(x => x.classList.toggle('on', x.dataset.slot === slot));
+          box.querySelectorAll('.tc').forEach(x => x.classList.toggle('on', x.dataset.r === cur()));
+          $('rosterPrev').innerHTML = rosterQ(cur()); paintTrio($('rosterPrev'));
+        };
+        paintTrio(box);
+        box.querySelectorAll('.qm-tabs button').forEach(x => { x.onclick = () => { slot = x.dataset.slot; upd(); }; });
+        box.querySelectorAll('.tc').forEach(x => { x.onclick = () => { if (slot === 'me') { me = x.dataset.r; slot = 'ai'; } else ai = x.dataset.r; upd(); }; });
+        upd();
+      });
+    const go = rs ? 1 : await pr;
     if (!go) return;
-    if (rs) await playMatch(null, null, rs); else await playMatch($('selMe').value, $('selAI').value, null, document.querySelector('input[name=mode]:checked').value === 'm');
+    if (rs) await playMatch(null, null, rs); else await playMatch(me, ai, null, document.querySelector('input[name=mode]:checked').value === 'm');
     const a = G.teams[0].score, b = G.teams[1].score;
     await ask(`<h2>${a > b ? '¡Ganaste!' : a < b ? 'Ganó la IA' : 'Empate'}</h2><p>${G.teams[0].name} ${a}, ${G.teams[1].name} ${b}</p>`, [{ label: 'Volver al menú', value: 1, primary: true }]);
   }
