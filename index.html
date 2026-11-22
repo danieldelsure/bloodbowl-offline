@@ -4826,14 +4826,52 @@ if (!HEADLESS) (function () {
         { t: 'El Receptor atrapó y todavía no se ha movido: selecciónalo y llévalo a cualquier casilla de la última columna.', hl: () => Array.from({ length: 15 }, (_, y) => [25, y]), ok: () => G.td === 0 }],
       early: o => (G.passUsed && !o.L.started) ? '<b class="ct-bad">Pasaste con el receptor marcado.</b> Se puede, pero es más difícil: cada marcador resta 1 a la recepción. Primero libéralo con el bloqueo de tu Línea y después pasa. Reintenta.' : null,
       done: 'Un pase es dos tiradas: lanzar y atrapar. Quitar a los marcadores del receptor antes de pasar sube mucho la probabilidad, y como el receptor no se ha movido, aún puede correr al fondo después de atrapar.' },
-    { title: 'Avanzar con caja (cage)', turns: 3, rr: 0,
-      intro: 'Un <b>cage</b> son 4 jugadores en las <b>diagonales</b> del portador. El rival no puede llegar al balón sin pasar por ellos, y las diagonales evitan que se cuelen. Se avanza en bloque, moviendo a todos. Aquí tienes <b>3 turnos</b> y la IA juega entre medio: llega a la columna dorada con el balón.',
-      setup(o) { o.goal = 14; o.C = TP(0, 'human_lineman', 4, 7); giveBall(o.C); [[3, 6], [3, 8], [5, 6], [5, 8]].forEach(([x, y]) => TP(0, 'human_lineman', x, y)); TPx(0, 2, 6); TPx(0, 2, 8); TPx(1, 11, 5); TPx(1, 11, 9); TPx(1, 13, 7); },
+    { title: 'Avanzar con caja (cage)', turns: 3, rr: 1,
+      intro: 'Un <b>cage</b> son 5 jugadores: el portador al centro y 4 en sus <b>diagonales</b>. El rival no puede llegar al balón sin romper una esquina. Se avanza en bloque, de a poco, <b>sin apuro</b>: lo importante es no perder el balón ni desarmar el cage. Tienes <b>3 turnos</b> con la IA jugando entre medio. Para pasar: al terminar el turno 3, el portador debe estar en la <b>columna dorada o más adelante</b> (4 casillas de avance), con el balón y al menos <b>3 de las 4 esquinas</b> ocupadas.',
+      setup(o) { o.goal = 8; o.C = TP(0, 'human_lineman', 4, 7); giveBall(o.C); [[3, 6], [3, 8], [5, 6], [5, 8]].forEach(([x, y]) => TP(0, 'human_lineman', x, y)); TPx(0, 2, 6); TPx(0, 2, 8); TPx(1, 11, 5); TPx(1, 11, 9); TPx(1, 13, 7); },
       hl: o => Array.from({ length: 15 }, (_, y) => [o.goal, y]),
-      turnText: (o, r) => r === 1 ? 'Arma el cage y avanza con todo el bloque: el portador al centro y los cuatro jugadores en las diagonales. Mueve primero a los de adelante y deja al portador casi al final. No esprintes si no es necesario. Al terminar, aprieta <b>Terminar turno</b>.' : 'Sigue avanzando con el cage cerrado. Si un orco rompe una esquina, tapa el hueco con otro jugador (tienes dos de apoyo) antes de mover al portador. Meta: la columna dorada antes de que termine el turno 3.',
-      afterHuman(o, r) { const c = G.ball.carrier; if (G.td === 0) return 'won'; if (!c || c.team !== 0) return ['fail', '<b class="ct-bad">Perdiste el balón.</b> Un cage roto deja al portador solo y el rival lo aprovecha. Cierra las esquinas antes de avanzar y reintenta.']; if (r === 3) return c.x >= o.goal ? 'won' : ['fail', '<b class="ct-bad">No alcanzaste la columna dorada en 3 turnos.</b> Avanza todo lo que puedas cada turno sin romper el cage. Reintenta.']; return null; },
+      turnText: (o, r) => r === 1 ? 'Arma el cage y avanza con todo el bloque: el portador al centro y los cuatro jugadores en las diagonales. Mueve primero a los de adelante y deja al portador casi al final. No esprintes si no es necesario. Al terminar, aprieta <b>Terminar turno</b>.' : 'Sigue avanzando con el cage cerrado, sin apuro. Si un orco rompe una esquina, tapa el hueco con otro jugador (tienes dos de apoyo) antes de mover al portador. Meta: al terminar el turno 3, portador en la columna dorada o más adelante, con el balón y al menos 3 esquinas.',
+      afterHuman(o, r) {
+        const c = G.ball.carrier; if (G.td === 0) return 'won';
+        if (!c || c.team !== 0) return ['fail', '<b class="ct-bad">Perdiste el balón.</b> Un cage roto deja al portador solo y el rival lo aprovecha. Cierra las esquinas antes de avanzar y reintenta.'];
+        if (r === 3) {
+          const k = [[-1, -1], [-1, 1], [1, -1], [1, 1]].filter(([dx, dy]) => { const q = playerAt(c.x + dx, c.y + dy); return q && q.team === 0; }).length;
+          if (c.x < o.goal) return ['fail', '<b class="ct-bad">No avanzaste lo suficiente.</b> Sin apuro, pero hay que ganar terreno: lleva al portador hasta la columna dorada antes de terminar el turno 3. Reintenta.'];
+          if (k < 3) return ['fail', `<b class="ct-bad">El cage quedó roto.</b> Solo tienes ${k} de las 4 esquinas ocupadas. Avanza menos si hace falta, pero no dejes al portador sin escolta. Reintenta.`];
+          return 'won';
+        }
+        return null;
+      },
       afterAI(o, r) { const c = G.ball.carrier; if (!c || c.team !== 0) return ['fail', '<b class="ct-bad">Los orcos te quitaron el balón.</b> Cierra las esquinas del cage y reintenta.']; return null; },
-      done: 'Con el cage armado, para llegar al portador el rival tiene que romper una esquina. Mantenerlo vivo varios turnos gana partidos.' },
+      done: 'Un cage no es una carrera: es avanzar sin dejar que te lo rompan. Con las esquinas ocupadas, para llegar al portador el rival tiene que ganarte un bloqueo.' },
+    { title: 'Cage: abrir hueco y rellenar', rr: 1,
+      intro: 'Un cage no atraviesa una línea rival por sí solo. Primero hay que <b>abrir un hueco</b>: tu Blitzer golpea a un orco con la ayuda de un compañero (2 dados). Cuando el hueco está abierto, <b>el cage avanza a llenarlo</b>, con el portador al final.',
+      setup(o) {
+        o.C = TP(0, 'human_lineman', 7, 7); giveBall(o.C); [[6, 6], [6, 8], [8, 6], [8, 8]].forEach(([x, y]) => TP(0, 'human_lineman', x, y));
+        o.S = TP(0, 'human_blitzer', 10, 6); o.H = TP(0, 'human_thrower', 11, 7);
+        o.W1 = TP(1, 'orc_lineman', 12, 5); o.W2 = TP(1, 'orc_lineman', 12, 7); o.W3 = TP(1, 'orc_lineman', 12, 9);
+        o.gold = [[10, 7], [9, 6], [9, 8], [11, 6], [11, 8]];
+      },
+      steps: [
+        { t: '<b>Abre el hueco.</b> Selecciona al Blitzer, aprieta <b>Blitz</b>, haz clic en el orco del medio y luego en la casilla dorada de arriba. Tu compañero de adelante da la asistencia (2 dados). Elige <b>Empujón</b>, <b>Tropiezo</b> o <b>POW</b> y <b>no sigas</b> al orco: quédate en la casilla.', hl: o => (ui.blitzTarget === o.W2 ? [[11, 6]] : [[o.S.x, o.S.y], [o.W2.x, o.W2.y]]), ok: o => o.W2.loc !== 'pitch' || o.W2.state !== 'standing' || !(o.W2.x === 12 && o.W2.y === 7) },
+        { t: '<b>Rellena el hueco.</b> Avanza el cage a las casillas doradas: el Blitzer ya es la esquina de arriba. Mueve primero las esquinas y deja al portador para el final, en la casilla del centro.', hl: o => o.gold, ok: o => o.C.x === 10 && o.C.y === 7 && [[9, 6], [9, 8], [11, 6], [11, 8]].every(([x, y]) => { const q = playerAt(x, y); return q && q.team === 0; }) }],
+      early: o => (o.S.used && o.W2.loc === 'pitch' && o.W2.state === 'standing' && o.W2.x === 12 && o.W2.y === 7) ? '<b class="ct-bad">El hueco no se abrió.</b> El orco sigue en su casilla: el dado no alcanzó o golpeaste sin la asistencia. Reintenta y elige Empujón, Tropiezo o POW.' : null,
+      done: 'Para pasar una línea con un cage, primero se rompe la línea y después avanza el cage: dados a favor adelante y el bloque cerrado detrás. Si no abres el hueco, no hay apuro: espera otro turno.' },
+    { title: 'Cage: flanco atacado', rr: 1,
+      intro: 'Un orco está pegado a una esquina de tu cage y otro viene detrás. No dejes que te lo desarmen por el costado: <b>limpia el flanco</b> con un bloqueo de la esquina pegada, ayudada por un compañero libre. Luego el cage avanza completo.',
+      setup(o) {
+        o.C = TP(0, 'human_lineman', 8, 7); giveBall(o.C); [[7, 6], [7, 8], [9, 6]].forEach(([x, y]) => TP(0, 'human_lineman', x, y)); o.K = TP(0, 'human_lineman', 9, 8);
+        o.X = TP(0, 'human_blitzer', 7, 10);
+        o.R = TP(1, 'orc_lineman', 10, 9); TP(1, 'orc_lineman', 11, 10);
+        o.gold = [[10, 7], [9, 6], [9, 8], [11, 6], [11, 8]];
+      },
+      steps: [
+        { t: '<b>Trae al ayudante.</b> Mueve al Blitzer a la casilla dorada de abajo: queda pegado al orco y le da una asistencia a tu esquina.', hl: o => [[o.X.x, o.X.y], [9, 10]], ok: o => o.X.x === 9 && o.X.y === 10 },
+        { t: '<b>Limpia el flanco.</b> Selecciona a la esquina pegada al orco, haz clic en él y elige <b>Bloquear</b> (2 dados). Elige <b>Empujón</b>, <b>Tropiezo</b> o <b>POW</b> y <b>no sigas</b> al orco.', hl: o => [[o.K.x, o.K.y], [o.R.x, o.R.y]], ok: o => o.R.loc !== 'pitch' || o.R.state !== 'standing' || !(o.R.x === 10 && o.R.y === 9) },
+        { t: '<b>Avanza el cage.</b> Con el flanco limpio, lleva el cage a las casillas doradas: esquinas primero, portador al final.', hl: o => o.gold, ok: o => o.C.x === 10 && o.C.y === 7 && [[9, 6], [9, 8], [11, 6], [11, 8]].every(([x, y]) => { const q = playerAt(x, y); return q && q.team === 0; }) }],
+      early: o => (o.K.used && o.R.loc === 'pitch' && o.R.state === 'standing' && o.R.x === 10 && o.R.y === 9) ? '<b class="ct-bad">El orco sigue pegado.</b> El bloqueo no lo movió. Reintenta: primero lleva al ayudante a la casilla dorada para tirar 2 dados y elige Empujón, Tropiezo o POW.' : null,
+      done: 'Cuando atacan un costado, primero limpia al atacante con un bloqueo asistido y después sigue avanzando. Un cage con un orco pegado se rompe con una sola tirada mala.' },
+
     { title: 'Defender con pantalla (screen)', turns: 3, rr: 1,
       intro: 'Una <b>pantalla</b> no busca tumbar al rival: busca <b>retrasarlo</b>. Se arma en <b>dos líneas</b> separadas por 2 casillas. La primera tiene un hueco entre cada jugador (las zonas de defensa se tocan). La segunda se coloca <b>justo detrás de esos huecos</b>: si tumban a alguien de adelante, el de atrás sigue tapando el paso. Los 2 jugadores que sobran son <b>cazadores</b>: no forman parte de la pantalla, están libres para presionar o robar el balón. Defiendes <b>3 turnos</b> de la IA: que no anote ni rompa tu línea.',
       setup(o) {
@@ -4994,7 +5032,7 @@ if (!HEADLESS) (function () {
   const SEC_DEF = [
     { name: 'Básico', sub: 'Mover, bloquear, asistir y el primer Blitz', t: ['Moverte y esprintar', 'Recoger el balón y anotar', 'El bloqueo', 'Asistencias', 'Los dados de bloqueo', 'Blitz'] },
     { name: 'Intermedio', sub: 'Esquivar, pasar, surf y formaciones', t: ['Esquivar (dodge)', 'Skills clave', 'Elegir el bloqueo seguro', 'Seguir o no seguir', 'Pase', 'Surf: al público', 'Liberar al portador con un Blitz', 'La línea de scrimmage', 'Formaciones de ataque', 'Principios de defensa', 'Formaciones de defensa'] },
-    { name: 'Avanzado', sub: 'Cadenas, surf de equipo, pases y defensa', t: ['Surf con dos jugadores', 'Empujón en cadena (chain push)', 'Empujón en cadena y surf', 'Liberar al receptor y pasar', 'Avanzar con caja (cage)', 'Defender con pantalla (screen)', 'Último turno: cuenta las casillas'] }
+    { name: 'Avanzado', sub: 'Cadenas, surf de equipo, pases y defensa', t: ['Surf con dos jugadores', 'Empujón en cadena (chain push)', 'Empujón en cadena y surf', 'Liberar al receptor y pasar', 'Avanzar con caja (cage)', 'Cage: abrir hueco y rellenar', 'Cage: flanco atacado', 'Defender con pantalla (screen)', 'Último turno: cuenta las casillas'] }
   ];
   function tutSections() {
     const used = new Set(), out = SEC_DEF.map(sc => ({ name: sc.name, sub: sc.sub, ids: sc.t.map(t => LESSONS.findIndex(l => l.title === t)).filter(i => i >= 0) }));
@@ -5081,7 +5119,7 @@ if (!HEADLESS) (function () {
     d.children[2].onclick = () => d.remove();
     document.body.appendChild(d);
   }
-  const BUILD_ID = '423549f4b3';
+  const BUILD_ID = '4e2f3964f9';
   async function checkUpdate() {   // compara esta versión con la publicada (version.json, siempre desde la red)
     try { const r = await fetch('version.json?chk=' + Date.now(), { cache: 'no-store' }); if (r.ok && (await r.json()).id !== BUILD_ID) offerUpdate(); } catch (e) { }
   }
