@@ -173,14 +173,16 @@
         { t: '<b>Empujón recto.</b> El orco está en la banda de abajo. Selecciona al jugador del medio, haz clic en el orco y elige <b>Bloquear</b>. Tienes 2 asistencias: 2 dados. Elige uno con <b>Empujón</b> (o POW): al empujarlo hacia abajo, las 3 casillas de atrás quedan fuera de la cancha y se va al público.', hl: o => [[o.A.x, o.A.y], [o.E.x, o.E.y]], ok: o => o.E.loc !== 'pitch' },
         { t: '<b>Empujón en diagonal.</b> Ahora el orco está en la esquina de abajo a la derecha y tu jugador lo golpea desde la diagonal. Selecciónalo, haz clic en el orco y elige <b>Bloquear</b> (5 contra 3, 2 dados). Al empujarlo en diagonal, sus 3 casillas posibles (diagonal, derecha y abajo) están fuera de la cancha: no tiene dónde caer dentro, así que sale al público. Si una de ellas estuviera libre dentro del campo, se iría ahí.', hl: o => [[o.A2.x, o.A2.y], [o.E2.x, o.E2.y]], ok: o => o.E2.loc !== 'pitch' }],
       done: 'Las bandas son armas. Un portador cerca de la banda corre el riesgo de perder el balón y el jugador. Recuerda: al empujar, el rival va a una casilla libre dentro del campo si la tiene; solo sale al público cuando no le queda ninguna, como en una esquina o de frente a la banda.' },
-    { title: 'Surf: colócate para empujarlo al público',
-      intro: 'Sacar a un rival al público no es suerte: es <b>posición</b>. El orco está en la banda de arriba. Para que ninguna de sus 3 casillas de escape quede dentro del campo, tienes que golpearlo <b>de frente</b>, desde la casilla de adentro que queda justo enfrente de la banda. Si golpeas desde un lado, le queda una casilla libre en la cancha y se salva.',
-      rr: 0,
-      setup(o) { o.A = TP(0, 'human_blitzer', 5, 5); o.H = TP(0, 'human_lineman', 9, 0); o.E = TP(1, 'orc_lineman', 10, 0); },
+    { title: 'Surf con dos jugadores',
+      intro: 'Ahora el orco está en la banda y tu jugador A ya está <b>a su lado</b>. Si A lo golpea solo, no pasa nada: el empujón le deja casillas libres dentro del campo (las de la derecha) y se va por ahí. Para mandarlo al público hay que <b>tapar esas casillas</b> con tus propios jugadores. Cuando no le queda ninguna libre, el empujón lo saca. Además, B y C a su lado te dan <b>asistencias</b> (2 dados).',
+      rr: 1,
+      setup(o) { o.A = TP(0, 'human_lineman', 9, 0); o.B = TP(0, 'human_lineman', 13, 0); o.C = TP(0, 'human_lineman', 13, 2); o.E = TP(1, 'orc_lineman', 10, 0); },
       steps: [
-        { t: 'Mueve a tu Blitzer a la casilla dorada de adentro, justo debajo del orco, y golpéalo desde ahí: selecciónalo, aprieta <b>Blitz</b>, haz clic en el orco y luego en la casilla dorada. Tu compañero de la banda le da una asistencia (2 dados). Elige <b>Empujón</b> o <b>POW</b>: las 3 casillas de atrás están fuera del campo y cae al público.', hl: o => (ui.blitzTarget === o.E ? [[10, 1]] : [[o.A.x, o.A.y], [o.E.x, o.E.y]]), ok: o => o.E.loc !== 'pitch' }],
-      early: o => (o.A.used && o.E.loc === 'pitch') ? '<b class="ct-bad">El orco se salvó.</b> Lo golpeaste desde un lado o el dado no alcanzó: desde un costado le queda una casilla libre dentro del campo y se va ahí. Golpéalo desde la casilla de adentro, justo enfrente de la banda, y elige Empujón o POW. Reintenta.' : null,
-      done: 'Antes de bloquear cerca de la banda, mira hacia dónde empujas: si la casilla de enfrente y sus dos diagonales de atrás son público, no tiene escapatoria. Mover a un jugador a la casilla correcta es la mitad del trabajo.' },
+        { t: '<b>Tapa la casilla de arriba.</b> Mueve a B a la casilla dorada, justo a la derecha del orco (sin esquivar: no sale de ninguna zona de defensa).', hl: o => [[o.B.x, o.B.y], [11, 0]], ok: o => o.B.x === 11 && o.B.y === 0 },
+        { t: '<b>Tapa la casilla de abajo.</b> Ahora mueve a C a la otra casilla dorada, en diagonal del orco.', hl: o => [[o.C.x, o.C.y], [11, 1]], ok: o => o.C.x === 11 && o.C.y === 1 },
+        { t: '<b>Golpea.</b> Selecciona a A, haz clic en el orco y elige <b>Bloquear</b>: con B y C como asistencia tiras 2 dados. Elige <b>Empujón</b> o <b>POW</b>: a la derecha no tiene casilla libre, así que el juego te pregunta y eliges <b>Mandarlo al público</b>.', hl: o => [[o.A.x, o.A.y], [o.E.x, o.E.y]], ok: o => o.E.loc !== 'pitch' }],
+      early: o => (o.A.used && o.E.loc === 'pitch') ? '<b class="ct-bad">El orco se salvó.</b> Si bloqueaste antes de tapar las dos casillas de la derecha, tenía donde caer; si ya las habías tapado, el dado no dio Empujón ni POW. Reintenta.' : null,
+      done: 'El surf es trabajo de equipo: un jugador golpea y los demás cierran las casillas de escape. Antes de bloquear cerca de la banda, cuenta las casillas libres que le quedan al rival.' },
     { title: 'Empujón en cadena (chain push)',
       intro: 'Cuando empujas a un rival, tiene que ir a una casilla libre. Pero si <b>las 3 casillas de atrás están ocupadas</b>, no se queda donde está: entra en una de ellas y <b>empuja también a quien esté ahí</b>. Tú eliges cuál. Eso es un <b>chain push</b> (empujón en cadena), y la cadena sigue hasta que alguien encuentra una casilla libre.',
       rr: 0,
@@ -191,6 +193,21 @@
       steps: [
         { t: 'El orco de adelante tiene <b>tres orcos pegados detrás</b>: no hay ninguna casilla libre. Selecciona al jugador del medio, haz clic en el orco y elige <b>Bloquear</b> (5 contra 3, 2 dados). Elige un resultado con <b>Empujón</b> (o POW). El juego te pedirá <b>a cuál de los tres orcos de atrás</b> lo mandas: haz clic en una casilla marcada. Ese orco también es empujado, y ahí eliges a qué casilla libre va. Después podrás decidir si sigues al primero.', hl: o => [[o.A.x, o.A.y], [o.E.x, o.E.y]], ok: o => o.back.some(q => q.x !== q.x0 || q.y !== q.y0) }],
       done: 'Un chain push mueve a toda la cadena una casilla, y el que empuja elige hacia quién. Sirve para abrir un hueco en una pantalla cerrada. Y si el último de la cadena está en la banda y no tiene casilla libre, se va al público: así puedes sacar a un jugador sin haberlo tocado.' },
+    { title: 'Empujón en cadena y surf',
+      intro: 'Juntemos las dos ideas. El orco O <b>tiene el balón</b> y está en la banda, protegido por dos orcos (G y Q) en fila. Si empujas a G y tiene casillas libres a los lados, se va ahí. Primero <b>tapa los costados</b> con tus jugadores; luego, el empujón se transmite en cadena: <b>G empuja a Q, Q empuja a O y O cae al público</b>, soltando el balón. Tú eliges a quién empuja cada uno.',
+      rr: 1,
+      setup(o) {
+        o.O = TP(1, 'orc_lineman', 10, 0); giveBall(o.O); o.Q = TP(1, 'orc_lineman', 10, 1); o.G = TP(1, 'orc_lineman', 10, 2);
+        o.A = TP(0, 'human_lineman', 10, 3); TP(0, 'human_lineman', 9, 3); TP(0, 'human_lineman', 11, 3);
+        TP(0, 'human_lineman', 11, 1); TP(0, 'human_lineman', 11, 0);
+        o.B = TP(0, 'human_blitzer', 7, 1); o.D = TP(0, 'human_blitzer', 7, 0);
+      },
+      steps: [
+        { t: '<b>Tapa la izquierda, primera casilla.</b> Los dos jugadores de la derecha ya cierran ese lado. Mueve a B a la casilla dorada de abajo: pega al orco G.', hl: o => [[o.B.x, o.B.y], [9, 1]], ok: o => o.B.x === 9 && o.B.y === 1 },
+        { t: '<b>Tapa la izquierda, segunda casilla.</b> Mueve a D a la casilla dorada de arriba, al lado del orco con balón.', hl: o => [[o.D.x, o.D.y], [9, 0]], ok: o => o.D.x === 9 && o.D.y === 0 },
+        { t: '<b>Golpea a G.</b> Selecciona a A, haz clic en G y elige <b>Bloquear</b> (2 dados con los dos asistentes de abajo). Elige <b>Empujón</b> o <b>POW</b>. Te preguntará a cuál orco manda: elige <b>Q</b> (el de en medio). Después, a Q lo mandas contra <b>O</b>, el del balón: eso lo saca al público.', hl: o => [[o.A.x, o.A.y], [o.G.x, o.G.y]], ok: o => o.O.loc !== 'pitch' }],
+      early: o => (o.A.used && o.O.loc === 'pitch') ? '<b class="ct-bad">El orco con balón se salvó.</b> Revisa dos cosas: que hayas tapado las casillas de los costados antes de golpear, y que en cada paso de la cadena hayas elegido al orco del medio y luego al del balón (no a uno de tus jugadores). Reintenta.' : null,
+      done: 'Un empujón en cadena puede llegar mucho más lejos que el golpe: aquí tocaste a un solo jugador y el que cayó fue el portador. Tapar los costados evita que los empujados escapen hacia ellos, y tú eliges por dónde pasa la cadena.' },
     { title: 'Blitz',
       intro: 'Una vez por turno, un jugador puede hacer <b>Blitz</b>: moverse y bloquear en la misma acción. El bloqueo cuesta 1 de movimiento. Es la mejor forma de llegar a un rival lejano.',
       rr: 0,
@@ -375,12 +392,9 @@
   }
   /* secciones del menú del tutorial (por título de lección) */
   const SEC_DEF = [
-    { name: 'Primeros pasos', sub: 'Mover, recoger el balón, bloquear y asistir', t: ['Moverte y esprintar', 'Recoger el balón y anotar', 'El bloqueo', 'Asistencias'] },
-    { name: 'Dados y decisiones', sub: 'Leer los dados, esquivar y elegir el bloqueo', t: ['Los dados de bloqueo', 'Esquivar (dodge)', 'Skills clave', 'Elegir el bloqueo seguro', 'Seguir o no seguir'] },
-    { name: 'Empujes y la banda', sub: 'Mandar rivales al público y empujones en cadena', t: ['Surf: al público', 'Surf: colócate para empujarlo al público', 'Empujón en cadena (chain push)'] },
-    { name: 'Atacar y anotar', sub: 'Blitz, pases y avanzar con el balón', t: ['Blitz', 'Liberar al portador con un Blitz', 'Pase', 'Liberar al receptor y pasar', 'Avanzar con caja (cage)'] },
-    { name: 'Defender', sub: 'Pantallas y contar casillas en el último turno', t: ['Defender con pantalla (screen)', 'Último turno: cuenta las casillas'] },
-    { name: 'Formaciones', sub: 'Línea de scrimmage, ataque y defensa', t: ['La línea de scrimmage', 'Formaciones de ataque', 'Principios de defensa', 'Formaciones de defensa'] }
+    { name: 'Básico', sub: 'Mover, bloquear, asistir y el primer Blitz', t: ['Moverte y esprintar', 'Recoger el balón y anotar', 'El bloqueo', 'Asistencias', 'Los dados de bloqueo', 'Blitz'] },
+    { name: 'Intermedio', sub: 'Esquivar, pasar, surf y formaciones', t: ['Esquivar (dodge)', 'Skills clave', 'Elegir el bloqueo seguro', 'Seguir o no seguir', 'Pase', 'Surf: al público', 'Liberar al portador con un Blitz', 'La línea de scrimmage', 'Formaciones de ataque', 'Principios de defensa', 'Formaciones de defensa'] },
+    { name: 'Avanzado', sub: 'Cadenas, surf de equipo, pases y defensa', t: ['Surf con dos jugadores', 'Empujón en cadena (chain push)', 'Empujón en cadena y surf', 'Liberar al receptor y pasar', 'Avanzar con caja (cage)', 'Defender con pantalla (screen)', 'Último turno: cuenta las casillas'] }
   ];
   function tutSections() {
     const used = new Set(), out = SEC_DEF.map(sc => ({ name: sc.name, sub: sc.sub, ids: sc.t.map(t => LESSONS.findIndex(l => l.title === t)).filter(i => i >= 0) }));
@@ -416,7 +430,7 @@
       if (v === 4000) { out = 'exit'; break; }
       if (v === 3000) { out = 'done'; full = true; break; }
       let list, name = '';
-      if (v === 2000) { list = LESSONS.map((l, k) => k); name = 'Curso completo'; }
+      if (v === 2000) { list = tutSections().flatMap(sc => sc.ids); name = 'Curso completo'; }
       else if (v >= 1000) { const sc = tutSections()[v - 1000]; list = sc.ids; name = sc.name; }
       else { list = [v]; name = ''; }
       $('cartel').hidden = false; clearInterval(tut.timer); tut.timer = setInterval(tutStatus, 250);

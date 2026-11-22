@@ -485,7 +485,7 @@ body.mob #cartel .fch{gap:4px}
 body.mob #cartel .fch button{padding:4px 8px!important;font-size:12px!important;min-height:0!important;height:auto!important;width:auto!important;line-height:1.2!important;flex:0 0 auto}
 
 /* menú del tutorial por secciones */
-.tm-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.tm-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start}
 .tm-sec{border:2px solid var(--ink);padding:8px 10px;display:flex;flex-direction:column;gap:5px}
 .tm-hd{display:flex;flex-direction:column;gap:2px;margin-bottom:2px}
 .tm-hd b{font:900 20px/1 var(--disp);text-transform:uppercase}
