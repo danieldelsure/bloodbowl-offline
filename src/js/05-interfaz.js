@@ -168,7 +168,7 @@ if (!HEADLESS) (function () {
       ui.phase = 'idle'; ui.sel = null; ui.limit = null; refresh(); msg('Patada inicial…');
     }
     async confirm(kind, text) {
-      const title = { apoKO: 'Apotecario', apoCas: 'Apotecario', bribe: 'Soborno', taunt: 'Taunt', highKick: 'Patada alta' }[kind] || 'Decisión';
+      const title = { swoop: 'Swoop', trickster: 'Trickster', apoKO: 'Apotecario', apoCas: 'Apotecario', bribe: 'Soborno', taunt: 'Taunt', highKick: 'Patada alta' }[kind] || 'Decisión';
       return ask(`<h2>${title}</h2><p>${text}</p>`, [{ label: 'Sí', value: true, primary: true }, { label: 'No', value: false }]);
     }
     async chooseKick() {
@@ -463,12 +463,25 @@ if (!HEADLESS) (function () {
     set('bFoul', fresh && !G.foulUsed, ui.mode === 'foul');
     set('bSecure', fresh && canSecure(s) && ui.moves.has(idx(G.ball.x, G.ball.y)));
     set('bStand', fresh && s.state === 'prone');
-    set('bTTM', fresh && has(s, 'Throw Team-mate') && !G.ttmUsed, ui.mode === 'ttm');
+    set('bTTM', fresh && ((has(s, 'Throw Team-mate') && !G.ttmUsed) || (has(s, 'Kick Team-mate') && !has(s, 'Throw Team-mate') && !G.kickUsed)), ui.mode === 'ttm');
     set('bVomit', fresh && has(s, 'Projectile Vomit') && s.state === 'standing' && !G.charge, ui.mode === 'vomit');
-    $('bTTM').hidden = !(ui.phase === 'turn' && s && has(s, 'Throw Team-mate'));
+    $('bTTM').hidden = !(ui.phase === 'turn' && s && (has(s, 'Throw Team-mate') || has(s, 'Kick Team-mate')));
+    set('bHM', fresh && has(s, 'Hail Mary Pass') && !G.passUsed && G.ball.carrier === s && s.state === 'standing' && !has(s, 'My Ball') && !s.noPA, ui.mode === 'hm');
+    $('bHM').hidden = !(ui.phase === 'turn' && s && has(s, 'Hail Mary Pass'));
+    set('bFumble', turn && s && has(s, 'Fumblerooski') && G.ball.carrier === s && s.state === 'standing' && (!s.started || s.action === 'move'), !!(s && s.fumble));
+    $('bFumble').hidden = !(ui.phase === 'turn' && s && has(s, 'Fumblerooski'));
     $('bVomit').hidden = !(ui.phase === 'turn' && s && has(s, 'Projectile Vomit'));
     set('bStab', fresh && has(s, 'Stab') && s.state === 'standing' && !G.charge, ui.mode === 'stab');
     $('bStab').hidden = !(ui.phase === 'turn' && s && has(s, 'Stab'));
+    for (const [id, mode, sk] of [['bGaze', 'gaze', 'Hypnotic Gaze'], ['bFire', 'fire', 'Breathe Fire'], ['bChomp', 'chomp', 'Monstrous Mouth'], ['bSaw', 'saw', 'Chainsaw']]) {
+      set(id, fresh && has(s, sk) && s.state === 'standing' && !G.charge, ui.mode === mode);
+      $(id).hidden = !(ui.phase === 'turn' && s && has(s, sk));
+    }
+    set('bBomb', fresh && has(s, 'Bombardier') && !G.bombUsed && s.state === 'standing' && !G.charge, ui.mode === 'bomb');
+    $('bBomb').hidden = !(ui.phase === 'turn' && s && has(s, 'Bombardier'));
+    set('bBC', fresh && has(s, 'Ball & Chain') && !G.charge, false);
+    $('bBC').hidden = !(ui.phase === 'turn' && s && has(s, 'Ball & Chain'));
+    if (s && has(s, 'Ball & Chain')) for (const id of ['bBlitz', 'bPass', 'bHand', 'bFoul', 'bSecure', 'bStand', 'bTTM', 'bVomit', 'bStab', 'bPunt']) $(id).disabled = true;
     set('bPunt', turn && s && has(s, 'Punt') && ((!s.started && !G.puntUsed) || (s.started && s.action === 'punt')), ui.mode === 'punt');
     $('bPunt').hidden = !(ui.phase === 'turn' && s && has(s, 'Punt'));
     set('bEndAct', turn && s && (s.started || s.state === 'prone'));
@@ -527,6 +540,10 @@ if (!HEADLESS) (function () {
     if (ui.mode === 'ttm') return '<b>Lanzar compañero.</b> Mueve al lanzador si quieres, luego haz clic en un compañero adyacente con Right Stuff y después en la casilla de destino.';
     if (ui.mode === 'punt') return '<b>Despeje.</b> Mueve al jugador si quieres y luego haz clic sobre él para patear el balón. Eliges hacia dónde apunta; el balón sale en esa dirección o en una diagonal, de 1 a 6 casillas.';
     if (ui.mode === 'stab') return '<b>Apuñalar.</b> Haz clic en un rival de pie adyacente: tirada de armadura sin modificar, y herida si se rompe. Para moverte antes, usa Blitz y elige apuñalar.';
+    const SP = { gaze: ['Mirada hipnótica', 'Con 3+ el rival queda distraído. Con 1-2 no pasa nada y termina la activación.'], fire: ['Aliento de fuego', 'D6 (-1 si su FU es 5+): 1 te derribas tú, 2-3 nada, 4+ el rival cae al suelo, un 6 natural lo derriba.'], chomp: ['Mordisco', 'Con 3+ el rival no puede irse de su casilla mientras lo marques.'], saw: ['Motosierra', 'Con 2+ tirada de armadura con +3 (herida si se rompe). Con 1 te derribas tú.'] };
+    if (ui.mode === 'hm') return '<b>Hail Mary Pass.</b> Mueve al pasador si quieres y haz clic en cualquier casilla del campo. Se tira como pase largo (bomba), un resultado preciso cuenta como impreciso y no se puede interceptar.';
+    if (ui.mode === 'bomb') return '<b>Lanzar bomba.</b> Sin moverte antes, haz clic en la casilla objetivo (cualquier casilla en alcance). Explota donde cae: derriba al que esté ahí y a los adyacentes con 4+. Ojo: también derriba a los tuyos.';
+    if (SP[ui.mode]) return `<b>${SP[ui.mode][0]}.</b> Haz clic en un rival de pie adyacente, sin haberte movido. ${SP[ui.mode][1]}`;
     if (ui.mode === 'vomit') return '<b>Vómito.</b> Haz clic en un rival de pie adyacente. Con 2+ sufre una tirada de armadura; con 1 la sufre tu jugador.';
     if (G.ball.carrier === s && !s.started && !G.charge && freeScore(s)) return `<b>${nm(s)}</b> puede anotar sin tirar dados. Si lo activas y no anota, cuenta como <b>Stalling</b> y el público puede derribarlo.`;
     return `<b>${nm(s)}.</b> ${s.rooted ? 'Está enraizado: no puede moverse, pero sí bloquear' : 'Clic en una casilla marcada para mover'}${!s.started && (s.state === 'standing' || has(s, 'Jump Up')) ? ', o en un rival adyacente para bloquear' : ''}.`;
@@ -603,6 +620,20 @@ if (!HEADLESS) (function () {
   }
   async function clickTurn(x, y, go) {
     const q = playerAt(x, y), s = ui.sel;
+    if (ui.mode === 'hm' && s && has(s, 'Hail Mary Pass') && G.ball.carrier === s && s.state === 'standing' && !(x === s.x && y === s.y) && (!s.started || s.action === 'pass')) {
+      const need = Math.min(6, Math.max(2, s.pa + 3 + markers(s).length + (wx('sunny') ? 1 : 0)));
+      const ok = await ask(`<h2>Hail Mary Pass</h2><p>Pase de bomba a cualquier casilla: ${nm(s)} necesita <b>${need}+</b> y un buen resultado igual cuenta como impreciso (el balón se desvía 3 casillas). Si nadie de tu equipo se queda con el balón, es turnover.</p>`, [{ label: 'Lanzar', value: true, primary: true }, { label: 'Cancelar', value: false }]);
+      if (!ok) return;
+      if (!(await ensureStarted('pass'))) return; await pass(s, x, y, { hm: true }); ui.sel = null; return;
+    }
+    if (ui.mode === 'bomb' && s && has(s, 'Bombardier') && !s.started && s.state === 'standing' && !G.bombUsed && !(x === s.x && y === s.y)) {
+      const band = rangeBand(s.x, s.y, x, y);
+      if (band < 0 || (wx('blizzard') && band > 1)) { msg('Esa casilla está fuera de alcance.'); return; }
+      const need = Math.min(6, Math.max(2, s.pa + band + markers(s).length + (wx('sunny') ? 1 : 0)));
+      const ok = await ask(`<h2>Lanzar bomba</h2><p>Lanzamiento ${BAND_NAME[band]}: ${nm(s)} necesita <b>${need}+</b> para que caiga justo ahí. Si la suelta, explota en su casilla y es turnover.</p>`, [{ label: 'Lanzar', value: true, primary: true }, { label: 'Cancelar', value: false }]);
+      if (!ok) return;
+      if (!(await ensureStarted('bomb'))) return; await throwBomb(s, x, y); ui.sel = null; return;
+    }
     if (q && q === s && ui.mode === 'punt' && G.ball.carrier === s && s.state === 'standing') {
       const dir = await ask(`<h2>Despeje</h2><p>¿Hacia dónde apunta ${nm(s)}? El balón sale recto o en diagonal (D3) y recorre de 1 a 6 casillas. Si lo atrapa un rival o sale del campo, es turnover.</p>`,
         [{ label: 'Hacia la zona rival', value: 'r', primary: true }, { label: 'Hacia tu zona', value: 'l' }, { label: 'Hacia arriba', value: 'u' }, { label: 'Hacia abajo', value: 'd' }, { label: 'Cancelar', value: null }]);
@@ -625,7 +656,7 @@ if (!HEADLESS) (function () {
         if (!ok) return;
         if (!(await ensureStarted('pass'))) return; await pass(s, x, y); ui.sel = null; return;
       }
-      if (s && s !== q && ui.mode === 'ttm' && has(s, 'Throw Team-mate') && has(q, 'Right Stuff') && q.state !== 'stunned' && cheb(s.x, s.y, x, y) === 1 && s.state === 'standing') {
+      if (s && s !== q && ui.mode === 'ttm' && (has(s, 'Throw Team-mate') || has(s, 'Kick Team-mate')) && has(q, 'Right Stuff') && q.state !== 'stunned' && cheb(s.x, s.y, x, y) === 1 && s.state === 'standing') {
         const sqs = [];
         for (let yy = 0; yy < H; yy++) for (let xx = 0; xx < W; xx++) { if (xx === s.x && yy === s.y) continue; const b = rangeBand(s.x, s.y, xx, yy); if (b === 0 || b === 1) sqs.push([xx, yy]); }
         msg(`<b>Lanzar a ${nm(q)}.</b> Elige la casilla de destino entre las marcadas. Clic en el lanzador para cancelar.`);
@@ -654,6 +685,10 @@ if (!HEADLESS) (function () {
         if (!adj || s.state !== 'standing' || s.started) { msg('Apuñalar es contra un rival de pie adyacente, sin haberse movido.'); return; }
         if (!(await ensureStarted('stab'))) return; await stab(s, q); ui.sel = null; return;
       }
+      if (SPECIAL_FN[ui.mode] && ui.mode !== 'stab' && ui.mode !== 'vomit') {
+        if (!adj || s.state !== 'standing' || s.started) { msg('Esta acción es contra un rival de pie adyacente, sin haberse movido.'); return; }
+        const mode = ui.mode; if (!(await ensureStarted(mode))) return; await SPECIAL_FN[mode](s, q); ui.sel = null; return;
+      }
       if (ui.mode === 'vomit') {
         if (!adj || s.state !== 'standing' || s.started) { msg('El Vómito es contra un rival de pie adyacente, sin haberse movido.'); return; }
         if (!(await ensureStarted('vomit'))) return; await vomit(s, q); ui.sel = null; return;
@@ -665,7 +700,7 @@ if (!HEADLESS) (function () {
         return;
       }
       if (ui.mode === 'move' && !s.started && !go) {
-        const items = [], canBlock = adj && (s.state === 'standing' || has(s, 'Jump Up')) && !G.charge;
+        const items = [], canBlock = adj && (s.state === 'standing' || has(s, 'Jump Up')) && !G.charge && !has(s, 'Ball & Chain');
         if (canBlock) { const bi = blockDice(s, q); items.push([`Bloquear · F${bi.a} vs ${bi.b} · ${bi.n} dado${bi.n > 1 ? 's' : ''}${bi.attChooses ? '' : ' (elige el rival)'}`, () => guard(() => clickTurn(x, y, 'block')), 'pri']); }
         if (!G.blitzUsed && !s.blitzBlocked && !G.charge) {
           let lab = null;
@@ -779,7 +814,9 @@ if (!HEADLESS) (function () {
   cv.addEventListener('mouseleave', () => { ui.hover = null; draw(); });
 
   function modeBtn(id, mode) { $(id).onclick = () => { if (ui.busy || !ui.sel || ui.sel.started) return; clearBlitzMark(); ui.mode = ui.mode === mode ? 'move' : mode; refresh(); msg(hint()); }; }
-  modeBtn('bBlitz', 'blitz'); modeBtn('bPass', 'pass'); modeBtn('bHand', 'handoff'); modeBtn('bFoul', 'foul'); modeBtn('bTTM', 'ttm'); modeBtn('bVomit', 'vomit'); modeBtn('bStab', 'stab'); modeBtn('bPunt', 'punt');
+  modeBtn('bBlitz', 'blitz'); modeBtn('bPass', 'pass'); modeBtn('bHand', 'handoff'); modeBtn('bFoul', 'foul'); modeBtn('bTTM', 'ttm'); modeBtn('bVomit', 'vomit'); modeBtn('bStab', 'stab'); modeBtn('bPunt', 'punt'); modeBtn('bBomb', 'bomb'); modeBtn('bHM', 'hm');
+  $('bFumble').onclick = () => { const s = ui.sel; if (!s || ui.busy || !has(s, 'Fumblerooski') || G.ball.carrier !== s || (s.started && s.action !== 'move')) return; s.fumble = !s.fumble; refresh(); msg(s.fumble ? '<b>Fumblerooski activado.</b> Al salir de tu casilla, el balón queda en ella. Muévete para dejarlo.' : 'Fumblerooski desactivado.'); }; modeBtn('bGaze', 'gaze'); modeBtn('bFire', 'fire'); modeBtn('bChomp', 'chomp'); modeBtn('bSaw', 'saw');
+  $('bBC').onclick = () => guard(async () => { const s = ui.sel; if (!s || s.started || !has(s, 'Ball & Chain')) return; if (!(await begin(s, 'bc'))) { ui.sel = null; return; } await ballAndChain(s); ui.sel = null; });
   $('bSecure').onclick = () => guard(async () => {
     const s = ui.sel, node = ui.moves.get(idx(G.ball.x, G.ball.y)); if (!s || !node || !canSecure(s)) return;
     if (node.prob < 0.999) { const ok = await ask(`<h2>Asegurar balón</h2><p>Llegar al balón pide tiradas. Éxito aproximado: <b>${Math.round(node.prob * 100)}%</b>.</p>`, [{ label: 'Ir', value: true, primary: true }, { label: 'Cancelar', value: false }]); if (!ok) return; }
@@ -1132,7 +1169,7 @@ if (!HEADLESS) (function () {
   }
   async function quickMatch(rs) {
     curMode = 'quick';
-    const opts = sel => RACE_ORDER.map(r => `<option value="${r}"${r === sel ? ' selected' : ''}>${ROSTERS[r].name} (tier ${ROSTERS[r].tier})</option>`).join('');
+    const opts = sel => RACE_ORDER.slice().sort((x, y) => ROSTERS[x].name.localeCompare(ROSTERS[y].name, 'es')).map(r => `<option value="${r}"${r === sel ? ' selected' : ''}>${ROSTERS[r].name} (tier ${ROSTERS[r].tier})${ROSTERS[r].prov ? ' · próximamente, provisional' : ''}</option>`).join('');
     const go = rs ? 1 : await ask(`<h2>Partido rápido</h2><p>Un partido suelto contra la IA con alineaciones de ejemplo.</p>
       <label for="selMe">Tu equipo</label><select id="selMe">${opts('human')}</select>
       <label for="selAI">Equipo rival (IA)</label><select id="selAI">${opts('orc')}</select>

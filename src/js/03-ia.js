@@ -1,6 +1,9 @@
 /* =====================================================================
    IA
    ===================================================================== */
+const SPECIAL_BY = { stab: 'Stab', vomit: 'Projectile Vomit', gaze: 'Hypnotic Gaze', fire: 'Breathe Fire', chomp: 'Monstrous Mouth', saw: 'Chainsaw' };
+const SPECIAL_SK = Object.values(SPECIAL_BY);
+const SPECIAL_FN = { stab: (p, e) => stab(p, e), vomit: (p, e) => vomit(p, e), gaze: (p, e) => gaze(p, e), fire: (p, e) => fire(p, e), chomp: (p, e) => chomp(p, e), saw: (p, e) => saw(p, e) };
 class AI {
   constructor(t, f) { this.t = t; if (f) this._f = Object.assign({}, AI2.f, f); }   // f: perillas propias de esta instancia (para la evolución)
   get f() { return this._f || AI2.f; }
@@ -8,7 +11,16 @@ class AI {
   over() { return G.turnover || G.td != null; }
   mine() { return this.team.players.filter(p => p.loc === 'pitch'); }
   foes() { return G.teams[1 - this.t].players.filter(p => p.loc === 'pitch'); }
-  avail() { return this.mine().filter(p => !p.used && !p.started && p.state !== 'stunned'); }
+  avail() { return this.mine().filter(p => !p.used && !p.started && p.state !== 'stunned' && !has(p, 'Ball & Chain')); }
+  /* Bola y cadena: sin control posible, se activa al final del turno */
+  async endTurnExtras() {
+    for (const p of this.mine()) {
+      if (this.over()) return;
+      if (!has(p, 'Ball & Chain') || p.used || p.started || p.state === 'stunned' || p.loc !== 'pitch') continue;
+      if (await begin(p, 'bc')) { await ballAndChain(p); await this.pause(); }
+      finish(p);
+    }
+  }
   dir() { return this.t === 0 ? 1 : -1; }
   pause() { return sleep(420); }
   async setup() {}
@@ -55,7 +67,7 @@ class AI {
       await this.doBlocks(1);
     } finally { this.bashing = false; }
   }
-  async confirm(kind, text, p) { if (kind === 'apoKO') return !!(p && (p.big || p.skills.size >= 2)); return true; }
+  async confirm(kind, text, p) { if (kind === 'swoop') return false; if (kind === 'apoKO') return !!(p && (p.big || p.skills.size >= 2)); return true; }
   /* Defensa sólida: los libres más lejos del punto de caída se reubican (en su mitad, fuera de zonas rivales) para cerrar ese flanco */
   async solidDefence(n, land) {
     const t = this.t, tgt = land && land.length ? land : [t === 0 ? 6 : 19, 7];
@@ -127,20 +139,43 @@ class AI {
   }
   pAV(av) { let n = 0; for (let a = 1; a <= 6; a++) for (let b = 1; b <= 6; b++) if (a + b >= av) n++; return n / 36; }
   /* Apuñalar y Vómito como acción propia (sin riesgo de turnover), cuando no hay un buen bloqueo disponible */
+  /* Bombardier: lanza la bomba donde alcance a más rivales y a menos compañeros */
+  async tryBomb() {
+    if (G.bombUsed) return false;
+    let best = null, bs = 1.0;
+    for (const p of this.avail()) {
+      if (!has(p, 'Bombardier') || p.state !== 'standing' || G.ball.carrier === p) continue;
+      for (const c of this.foes()) {
+        const band = rangeBand(p.x, p.y, c.x, c.y); if (band < 0 || (wx('blizzard') && band > 1)) continue;
+        let v = 0;
+        for (const q of pitchPlayers()) { const dd = cheb(q.x, q.y, c.x, c.y); if (dd > 1) continue; const w = (dd === 0 ? 1 : 0.5) * (q.state === 'standing' ? 1 : 0.4) * (q === G.ball.carrier ? 2 : 1); v += q.team === this.t ? -w : w; }
+        v *= [0.95, 0.85, 0.6, 0.4][band] || 0.4;
+        if (v > bs) { bs = v; best = { p, c }; }
+      }
+    }
+    if (!best) return false;
+    if (await begin(best.p, 'bomb')) { await throwBomb(best.p, best.c.x, best.c.y); await this.pause(); }
+    finish(best.p); return true;
+  }
   async doSpecials() {
+    while (!this.over() && await this.tryBomb());
+    if (this.over()) return;
     for (;;) {
       let best = null, bs = 0;
       for (const p of this.avail()) {
-        if (p.state !== 'standing' || G.ball.carrier === p || (!has(p, 'Stab') && !has(p, 'Projectile Vomit'))) continue;
+        if (p.state !== 'standing' || G.ball.carrier === p || !SPECIAL_SK.some(k => has(p, k))) continue;
         for (const e of this.foes()) {
           if (e.state !== 'standing' || cheb(p.x, p.y, e.x, e.y) !== 1) continue;
           const info = blockDice(p, e);
           const blockOk = info.attChooses && (info.n >= 2 || (info.n === 1 && this.oneDieOk(p, e)));
           const isC = G.ball.carrier === e, fa = has(e, 'Foul Appearance') ? 5 / 6 : 1;
-          for (const kind of ['stab', 'vomit']) {
-            if (kind === 'stab' && !has(p, 'Stab')) continue;
-            if (kind === 'vomit' && !has(p, 'Projectile Vomit')) continue;
-            const pb = this.pAV(e.av) * fa * (kind === 'vomit' ? 5 / 6 : 1);
+          for (const kind of ['stab', 'vomit', 'gaze', 'fire', 'chomp', 'saw']) {
+            if (!has(p, SPECIAL_BY[kind])) continue;
+            let pb = this.pAV(e.av) * fa * (kind === 'vomit' ? 5 / 6 : 1);
+            if (kind === 'saw') pb = (has(e, 'Iron Hard Skin') ? this.pAV(e.av) : this.pAV(e.av - 3)) * fa * 5 / 6;
+            if (kind === 'gaze') pb = (2 / 3) * fa * (isC ? 1 : 0.55);
+            if (kind === 'fire') pb = (e.st >= 5 ? 3 / 6 : 4 / 6) * fa * 0.45;
+            if (kind === 'chomp') pb = (2 / 3) * fa * (isC ? 0.9 : 0.4);
             if (pb < 0.3) continue;
             let v = pb * 10 + (isC ? pb * 30 : 0) + (e.skills.size >= 3 ? pb * 4 : 0) - (blockOk ? 5 : 0);
             if (v > bs) { bs = v; best = { p, e, kind }; }
@@ -149,7 +184,7 @@ class AI {
       }
       if (!best) return;
       const { p, e, kind } = best;
-      if (await begin(p, kind)) { if (kind === 'stab') await stab(p, e); else await vomit(p, e); await this.pause(); }
+      if (await begin(p, kind)) { await SPECIAL_FN[kind](p, e); await this.pause(); }
       finish(p);
       if (this.over()) return;
     }
@@ -160,9 +195,9 @@ class AI {
   /* Lanzar compañero: solo en el último turno, lanzando al portador (Right Stuff) hacia la zona de anotación */
   async tryTTM() {
     const c = G.ball.carrier;
-    if (G.ttmUsed || !c || c.team !== this.t || !has(c, 'Right Stuff') || c.state !== 'standing' || c.used || c.started || G.turn[this.t] < TURNS) return false;
+    if (!c || c.team !== this.t || !has(c, 'Right Stuff') || c.state !== 'standing' || c.used || c.started || G.turn[this.t] < TURNS) return false;
     const sn = this.scoreNode(c), base = sn ? sn.prob : 0;
-    const th = this.avail().find(q => q !== c && has(q, 'Throw Team-mate') && q.state === 'standing' && !q.rooted && cheb(q.x, q.y, c.x, c.y) === 1);
+    const th = this.avail().find(q => q !== c && ((has(q, 'Throw Team-mate') && !G.ttmUsed) || (has(q, 'Kick Team-mate') && !has(q, 'Throw Team-mate') && !G.kickUsed)) && q.state === 'standing' && !q.rooted && cheb(q.x, q.y, c.x, c.y) === 1);
     if (!th) return false;
     const gx = goalX(this.t), hungry = has(th, 'Always Hungry') ? 5 / 6 : 1;
     let best = null, bp = Math.max(0.03, base + 0.02);

@@ -138,7 +138,7 @@ function makePlayer(team, id, d) {
 }
 function teamShell(i, o, players) {
   const rr = o.rr, line = (o.players || []).find(d => d.role === 'line') || o.lineDef || null;
-  return { i, race: o.race, name: o.name, coach: o.coach || '', color: i === 0 ? '#3f8a86' : '#d2693a', players, rrMax: rr, rerolls: rr, score: 0, ctrl: null,
+  return { i, race: o.race, name: o.name, rules: o.rules || [], coach: o.coach || '', color: i === 0 ? '#3f8a86' : '#d2693a', players, rrMax: rr, rerolls: rr, score: 0, ctrl: null,
     apo: o.apo, bribes: 0, canArgue: true, cheer: o.cheer || 0, coaches: o.coaches || 0, fans: Math.max(1, o.fans || 0), kegs: o.kegs || 0, leaderRR: false, plagueUsed: false, lineDef: line, ff: 0, cheerAssist: false, bonusRR: 0, rrUsed: 0 };
 }
 function makeTeam(i, race) {
@@ -147,7 +147,7 @@ function makeTeam(i, race) {
   for (const def of R.players) for (let k = 1; k <= def.q; k++)
     players.push(makePlayer(i, players.length, Object.assign({}, def, { name: def.q > 1 ? `${def.pos} ${k}` : def.pos, variant: k - 1 + (def.vo || 0) })));
   const ld = R.players.find(d => d.role === 'line');
-  return teamShell(i, { race, name: R.name, rr: R.rr, apo: R.apo, lineDef: ld ? Object.assign({}, ld, { name: ld.pos }) : null }, players);
+  return teamShell(i, { race, name: R.name, rr: R.rr, apo: R.apo, rules: R.rules, lineDef: ld ? Object.assign({}, ld, { name: ld.pos }) : null }, players);
 }
 function newGame(race0, race1) {
   G = { teams: [makeTeam(0, race0), makeTeam(1, race1)], ball: { x: -1, y: -1, carrier: null }, half: 1, turn: [0, 0],
@@ -205,6 +205,7 @@ async function applyInjury(p, bonus, crowd, by) {
   let kind;
   if (has(p, 'Stunty')) kind = r <= 6 ? 'stun' : r <= 8 ? 'ko' : r === 9 ? 'bh' : 'cas';
   else kind = (r <= 7 || (r === 8 && has(p, 'Thick Skull'))) ? 'stun' : r <= 9 ? 'ko' : 'cas';
+  if (kind === 'stun' && (has(p, 'Ball & Chain') || p.stunKO)) kind = 'ko';
   await fxD6(p, 'Herida', null, [a, b], null, `Herida · ${r}: ${{ stun: 'aturdido', ko: 'inconsciente', bh: 'baja', cas: 'baja' }[kind]}`);
   await fxBanner('say', null, { title: kind === 'stun' ? 'Aturdido' : kind === 'ko' ? 'Inconsciente (KO)' : 'Lesión', text: nm(p) + (kind === 'stun' ? (crowd ? ' vuelve a la reserva' : ' queda aturdido') : kind === 'ko' ? ' sale del partido' : ' sale herido'), c: kind === 'stun' ? '#d9a21b' : '#d52b1e', ms: 1000 });
   const head = `Herida de ${nm(p)}: ${a}+${b}${bonus ? '+' + bonus : ''} = ${r}: `;
@@ -271,13 +272,19 @@ async function knockDown(p, o) {   // devuelve true si el jugador realmente cae
   const sx = p.x, sy = p.y, had = G.ball.carrier === p;
   p.state = 'prone'; p.rooted = false;
   if (p.team === G.active && G.phase === 'turn' && !o.noTO) G.turnover = true;
-  const a = d6(), b = d6(); let ar = a + b, mb = !!o.mb, broke = ar >= p.av, note = '';
+  const ihs = has(p, 'Iron Hard Skin');
+  const a = d6(), b = d6(); let ar = a + b + (has(p, 'Chainsaw') && !ihs ? 3 : 0), mb = !!o.mb && !ihs, broke = ar >= p.av, note = '';
   await fxD6(p, 'Armadura', p.av, [a, b], null, `Armadura ${p.av}+ · ${ar}: ${broke ? 'se rompe' : 'aguanta'}`);
-  if (!broke && o.claws && ar >= 8) { broke = true; note = ' (Claws)'; }
+  if (!broke && o.claws && !ihs && ar >= 8) { broke = true; note = ' (Claws)'; }
   if (!broke && mb && ar + 1 >= p.av) { broke = true; mb = false; note = ' (+1 Mighty Blow)'; }
   log(`${nm(p)} cae. Armadura ${p.av}+: ${a}+${b}${note} ${broke ? 'rota' : 'aguanta'}`, 't' + p.team);
   if (!broke) await fxBanner('say', null, { title: 'Derribado', text: nm(p), c: G.teams[p.team].color, ms: 750, tut: true });
-  if (broke) await applyInjury(p, mb ? 1 : 0, false, o.by);
+  if (ihs && (o.mb || o.claws)) log(`${nm(p)} tiene Iron Hard Skin: no se aplican modificadores a su armadura`, 't' + p.team);
+  if (broke || has(p, 'Ball & Chain')) await applyInjury(p, broke && mb ? 1 : 0, false, o.by);
+  if (had && has(p, 'Safe Pair of Hands') && p.loc === 'pitch') {
+    const sq = DIRS.map(([dx, dy]) => [sx + dx, sy + dy]).filter(([x, y]) => inPitch(x, y) && !playerAt(x, y));
+    if (sq.length) { const [bx, by] = sq[d(sq.length) - 1]; G.ball.carrier = null; G.ball.x = bx; G.ball.y = by; log(`${nm(p)} deja el balón en una casilla vecina (Safe Pair of Hands)`, 'good'); render(); await sleep(200); return true; }
+  }
   if (had) { G.ball.carrier = null; G.ball.x = sx; G.ball.y = sy; }
   render(); await sleep(200);
   if (had) await bounceBall(sx, sy);
@@ -354,7 +361,27 @@ async function pickUp(p) {
 function finish(p) {
   if (!p) return;
   if (p.stall && G.ball.carrier === p && G.td == null) G.pendingStall = p;
+  if (p.bite) { p.bite = false; G.pendingBite = p; }
   p.stall = false; p.used = true; if (G.cur === p) G.cur = null;
+}
+/* Bloodlust: al terminar la activación hay que morder a un Thrall adyacente; si no, turnover y se queda distraído */
+async function resolveBite() {
+  const p = G.pendingBite; G.pendingBite = null;
+  if (!p || p.loc !== 'pitch') return;
+  const tg = G.teams[p.team].players.filter(q => q !== p && q.loc === 'pitch' && q.kw === 'thrall' && cheb(q.x, q.y, p.x, p.y) === 1);
+  if (tg.length) {
+    const q = tg.sort((a, b) => (G.ball.carrier === a) - (G.ball.carrier === b) || (a.state === 'standing') - (b.state === 'standing'))[0];
+    log(`${nm(p)} muerde a ${nm(q)} (Bloodlust)`, 't' + p.team);
+    const had = G.ball.carrier === q, sx = q.x, sy = q.y;
+    await applyInjury(q, 0, false);
+    if (had && q.loc !== 'pitch') { G.ball.carrier = null; G.ball.x = sx; G.ball.y = sy; await bounceBall(sx, sy); }
+    render(); return;
+  }
+  log(`${nm(p)} no tiene a quién morder (Bloodlust): turnover, queda distraído`, 'bad');
+  p.distracted = true;
+  if (G.ball.carrier === p) { const sx = p.x, sy = p.y; G.ball.carrier = null; G.ball.x = sx; G.ball.y = sy; render(); await bounceBall(sx, sy); }
+  if (G.active === p.team && G.phase === 'turn') G.turnover = true;
+  render();
 }
 function freeScore(p) {
   if (p.state !== 'standing') return false;
@@ -372,6 +399,7 @@ async function resolveStall() {
 async function begin(p, action) {
   if (G.cur && G.cur !== p) finish(G.cur);
   await resolveStall();
+  await resolveBite();
   if (G.turnover) return false;
   if (G.charge) {
     if (G.charge.left <= 0) return false;
@@ -379,9 +407,9 @@ async function begin(p, action) {
     if (G.charge.left === 0) for (const q of G.teams[p.team].players) if (q !== p && !q.started) q.used = true;
   }
   p.stall = G.ball.carrier === p && !has(p, 'Bone Head') && !has(p, 'Really Stupid') && freeScore(p);
-  G.cur = p; p.action = action; p.started = true; p.distracted = false; p.gouged = false; p.maLeft = p.ma; p.rushes = 0; p.blitzBlocked = false;
+  G.cur = p; p.action = action; p.started = true; p.distracted = false; p.gouged = false; p.maLeft = p.ma; p.rushes = 0; p.blitzBlocked = false; p.fumble = false; p.gng = false;
   if (action === 'blitz') G.blitzUsed = true; if (action === 'pass') G.passUsed = true; if (action === 'handoff') G.handUsed = true;
-  if (action === 'foul') G.foulUsed = true; if (action === 'secure') G.secureUsed = true; if (action === 'ttm') G.ttmUsed = true; if (action === 'punt') G.puntUsed = true;
+  if (action === 'foul') G.foulUsed = true; if (action === 'secure') G.secureUsed = true; if (action === 'ttm') { if (has(p, 'Kick Team-mate') && !has(p, 'Throw Team-mate')) G.kickUsed = true; else G.ttmUsed = true; } if (action === 'punt') G.puntUsed = true;
   if (has(p, 'Bone Head')) {
     const r = d6();
     if (r === 1) { log(`${nm(p)}: Bone Head, saca 1 y se queda distraído`, 'bad'); p.distracted = true; finish(p); render(); return false; }
@@ -394,6 +422,41 @@ async function begin(p, action) {
   if (has(p, 'Take Root') && p.state === 'standing' && !p.rooted) {
     const r = d6();
     if (r === 1) { p.rooted = true; log(`${nm(p)} echa raíces (Take Root, 1): no podrá moverse hasta el final de la entrada o hasta que lo derriben`, 'bad'); }
+  }
+  if (has(p, 'Squig Rage') && !G.teams[p.team].players.some(q => q !== p && q.loc === 'pitch' && q.state === 'standing' && has(q, 'Squig Restraint') && cheb(q.x, q.y, p.x, p.y) <= 3)) {
+    const r = d6();
+    if (r <= 2) {
+      const foes = G.teams[1 - p.team].players.filter(q => q.loc === 'pitch' && q.state === 'standing' && cheb(q.x, q.y, p.x, p.y) === 1);
+      const mates = G.teams[p.team].players.filter(q => q !== p && q.loc === 'pitch' && q.state === 'standing' && cheb(q.x, q.y, p.x, p.y) === 1);
+      log(`${nm(p)}: Squig Rage, saca ${r} y se descontrola`, 'bad');
+      if (p.state === 'prone' && has(p, 'Jump Up') && foes.length) p.state = 'standing';
+      if (p.state === 'standing' && foes.length) { await block(p, foes[d(foes.length) - 1], true, {}); finish(p); render(); return false; }
+      if (mates.length) { const m = mates[d(mates.length) - 1]; log(`${nm(p)} se lanza contra su compañero ${nm(m)}`, 'bad'); await knockDown(m, { by: p }); }
+      else { p.distracted = true; finish(p); render(); return false; }
+    }
+  }
+  if (has(p, 'Unchannelled Fury') || has(p, 'Animal Savagery')) {
+    const r = d6(), bonus = action === 'block' || action === 'blitz' ? 2 : 0;
+    if (r + bonus < 4) {
+      if (has(p, 'Unchannelled Fury')) { log(`${nm(p)}: Unchannelled Fury, saca ${r}${bonus ? '+' + bonus : ''} y no hace nada`, 'bad'); finish(p); render(); return false; }
+      const mates = G.teams[p.team].players.filter(q => q !== p && q.loc === 'pitch' && q.state === 'standing' && cheb(q.x, q.y, p.x, p.y) === 1);
+      log(`${nm(p)}: Animal Savagery, saca ${r}${bonus ? '+' + bonus : ''}`, 'bad');
+      if (!mates.length) { p.distracted = true; finish(p); render(); return false; }
+      const m = mates[d(mates.length) - 1], had = G.ball.carrier === m, was = G.turnover;
+      log(`${nm(p)} ataca a su compañero ${nm(m)}`, 'bad');
+      await knockDown(m, { by: p, claws: has(p, 'Claws'), mb: has(p, 'Mighty Blow'), noTO: !had });
+      if (!had) G.turnover = was;
+    }
+  }
+  if (has(p, 'Bloodlust')) {
+    const m = p.skList.find(x => /^Bloodlust/.test(x)), X = parseInt((m.match(/\((\d)\+?\)/) || [0, 2])[1]) || 2;
+    const r = d6(), bonus = action === 'block' || action === 'blitz' ? 1 : 0;
+    p.bite = false;
+    if (r === 1 || r + bonus < X) {
+      log(`${nm(p)}: Bloodlust (${X}+), saca ${r}${bonus ? '+' + bonus : ''}: sed de sangre`, 'bad');
+      p.bite = true;
+      if (action !== 'move' && action !== 'secure') { log(`${nm(p)} cambia a acción de Movimiento`, 'bad'); p.action = 'move'; }
+    }
   }
   if (p.state === 'prone') {
     if (has(p, 'Jump Up')) {
@@ -411,7 +474,7 @@ async function begin(p, action) {
   }
   return true;
 }
-const rushRoll = p => rollTest(p, 'Esprintar', rushNeed(), { skill: has(p, 'Sure Feet') && !p.sfUsed ? 'Sure Feet' : null, onSkill: () => { p.sfUsed = true; } });
+const rushRoll = p => rollTest(p, 'Esprintar', rushNeed() + (has(p, 'Drunkard') ? 1 : 0), { skill: has(p, 'Sure Feet') && !p.sfUsed ? 'Sure Feet' : null, onSkill: () => { p.sfUsed = true; } });
 const rushCap = p => 2 + (has(p, 'Sprint') && p.action === 'move' ? 1 : 0);
 /* Modificadores de rivales al esquivar o saltar fuera de sus zonas */
 async function leaveZone(p, mk, ox, oy, label, baseNeed, extra) {
@@ -435,24 +498,40 @@ async function leaveZone(p, mk, ox, oy, label, baseNeed, extra) {
   }
   return ok;
 }
+/* Chomp (Monstrous Mouth): no puede salir de su casilla mientras lo marque quien lo mordió */
+function chompedNow(p) { const c = p.chompedBy; return !!(c && c.loc === 'pitch' && c.state === 'standing' && hasTZ(c) && cheb(c.x, c.y, p.x, p.y) === 1); }
+/* Tentacles: al esquivar o saltar fuera de su zona, 6+ con D6 + FU propia - FU del rival lo deja clavado y termina su activación */
+async function tentacleHold(p, mk, ox, oy) {
+  const t = mk.filter(q => has(q, 'Tentacles') && hasTZ(q)).sort((a, b) => b.st - a.st)[0];
+  if (!t) return false;
+  const r = d6(), tot = r + t.st - p.st;
+  const ok = r === 6 || (r !== 1 && tot >= 6);
+  log(`${nm(t)} intenta atrapar a ${nm(p)} con Tentacles: ${r}${t.st - p.st >= 0 ? '+' : ''}${t.st - p.st} = ${tot}${ok ? ': ¡lo atrapa!' : ': se suelta'}`, 't' + t.team);
+  if (!ok) return false;
+  p.x = ox; p.y = oy; render(); finish(p); return true;
+}
 async function stepTo(p, nx, ny) {
   if (!inPitch(nx, ny) || playerAt(nx, ny) || cheb(p.x, p.y, nx, ny) !== 1 || p.state !== 'standing' || p.rooted) return 'blocked';
   const rush = p.maLeft <= 0;
   if (rush && p.rushes >= rushCap(p)) return 'blocked';
+  if (chompedNow(p)) return 'blocked';
   const mk = markers(p), ox = p.x, oy = p.y;
   if (rush) p.rushes++; else p.maLeft--;
   p.x = nx; p.y = ny; render(); await sleep(95);
   if (rush && !(await rushRoll(p)) && await knockDown(p)) return 'down';
   if (mk.length) {
-    const ok = await leaveZone(p, mk, ox, oy, 'Esquivar', p.ag + (has(p, 'Stunty') ? 0 : markers(p).length));
-    if (!ok && await knockDown(p)) return 'down';
+    if (await tentacleHold(p, mk, ox, oy)) return 'stop';
+    const need = p.ag + (has(p, 'Stunty') ? 0 : markers(p).filter(q => !has(q, 'Titchy')).length) - (has(p, 'Titchy') ? 1 : 0);
+    const ok = await leaveZone(p, mk, ox, oy, 'Esquivar', need);
+    if (!ok && await knockDown(p, { mb: mk.some(q => has(q, 'Arm Bar')), by: mk.find(q => has(q, 'Arm Bar')) })) return 'down';
   }
+  if (p.fumble && G.ball.carrier === p) { p.fumble = false; G.ball.carrier = null; G.ball.x = ox; G.ball.y = oy; log(`${nm(p)} deja caer el balón a propósito (Fumblerooski)`, 't' + p.team); render(); }
   if (ballLoose() && G.ball.x === nx && G.ball.y === ny) { await pickUp(p); if (G.turnover) return 'stop'; }
   checkTD(); if (G.td != null) return 'td';
   return 'ok';
 }
 async function jumpTo(p, nx, ny) {
-  if (!inPitch(nx, ny) || playerAt(nx, ny) || p.state !== 'standing' || p.rooted) return 'blocked';
+  if (!inPitch(nx, ny) || playerAt(nx, ny) || p.state !== 'standing' || p.rooted || chompedNow(p)) return 'blocked';
   const rn = Math.max(0, 2 - p.maLeft); if (p.rushes + rn > rushCap(p)) return 'blocked';
   const mk = markers(p), ox = p.x, oy = p.y;
   const m0 = Math.max(mk.length, markersAt(nx, ny, p.team).length);
@@ -460,11 +539,13 @@ async function jumpTo(p, nx, ny) {
   p.maLeft = Math.max(0, p.maLeft - 2);
   for (let i = 0; i < rn; i++) { p.rushes++; if (!(await rushRoll(p)) && await knockDown(p)) return 'down'; }
   const out = {};
+  if (mk.length && await tentacleHold(p, mk, ox, oy)) return 'stop';
   p.x = nx; p.y = ny;
   const ok = await leaveZone(p, mk, ox, oy, 'Saltar', p.ag + mod, { out });
   if (!ok && out.r === 1 && !playerAt(ox, oy)) { p.x = ox; p.y = oy; }
   render(); await sleep(140);
-  if (!ok && await knockDown(p)) return 'down';
+  if (ok && p.fumble && G.ball.carrier === p) { p.fumble = false; G.ball.carrier = null; G.ball.x = ox; G.ball.y = oy; log(`${nm(p)} deja caer el balón a propósito (Fumblerooski)`, 't' + p.team); render(); }
+  if (!ok && await knockDown(p, { mb: mk.some(q => has(q, 'Arm Bar')), by: mk.find(q => has(q, 'Arm Bar')) })) return 'down';
   if (ballLoose() && G.ball.x === p.x && G.ball.y === p.y) { await pickUp(p); if (G.turnover) return 'stop'; }
   checkTD(); if (G.td != null) return 'td';
   return 'ok';
@@ -477,16 +558,16 @@ async function moveAlong(p, path) {
 /* Casillas alcanzables: mejor probabilidad de llegar a cada una */
 function computeMoves(p, o) {
   o = o || {};
-  const occ = new Uint8Array(W * H), tz = new Uint8Array(W * H), tk = new Uint8Array(W * H), dn = new Uint8Array(W * H), hard = new Uint8Array(W * H);
+  const occ = new Uint8Array(W * H), tz = new Uint8Array(W * H), tzT = new Uint8Array(W * H), tk = new Uint8Array(W * H), dn = new Uint8Array(W * H), hard = new Uint8Array(W * H);
   for (const q of pitchPlayers()) {
     if (q !== p) { occ[idx(q.x, q.y)] = 1; if (q.state !== 'standing') dn[idx(q.x, q.y)] = 1; }
     if (q.team !== p.team && hasTZ(q)) for (const [dx, dy] of DIRS) {
       const x = q.x + dx, y = q.y + dy; if (!inPitch(x, y)) continue;
-      tz[idx(x, y)]++; if (has(q, 'Tackle')) tk[idx(x, y)] = 1;
+      tz[idx(x, y)]++; if (has(q, 'Titchy')) tzT[idx(x, y)]++; if (has(q, 'Tackle')) tk[idx(x, y)] = 1;
       if (has(q, 'Prehensile Tail')) hard[idx(x, y)] = Math.max(hard[idx(x, y)], 1); if (has(q, 'Diving Tackle')) hard[idx(x, y)] = 2;
     }
   }
-  if (p.rooted || p.loc !== 'pitch') return new Map();
+  if (p.rooted || p.loc !== 'pitch' || chompedNow(p) || has(p, 'Ball & Chain')) return new Map();
   const started = G.cur === p && p.started;
   const ma = o.ma != null ? o.ma : started ? p.maLeft : (p.state === 'prone' && !has(p, 'Jump Up') ? Math.max(0, p.ma - 3) : p.ma);
   const act = started ? p.action : (o.action || 'move');
@@ -497,7 +578,7 @@ function computeMoves(p, o) {
   if (o.half != null) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (!inHalf(x, o.half)) occ[idx(x, y)] = 1;
   const leaper = has(p, 'Leap') || has(p, 'Pogo Stick'), pogo = has(p, 'Pogo Stick'), lp = has(p, 'Leap'), vll = has(p, 'Very Long Legs') ? 1 : 0;
   const jmod = m => (pogo ? 0 : lp && m > 1 ? m - 1 : m) - vll;
-  const dodgeRR = has(p, 'Dodge') && !p.dodgeUsed, stunty = has(p, 'Stunty'), RP = (7 - rushNeed()) / 6;
+  const dodgeRR = has(p, 'Dodge') && !p.dodgeUsed, stunty = has(p, 'Stunty'), titchy = has(p, 'Titchy'), RN = rushNeed() + (has(p, 'Drunkard') ? 1 : 0), RP = (7 - RN) / 6;
   const best = new Map();
   const layers = Array.from({ length: Math.max(0, maxSteps) + 3 }, () => new Map());
   const put = (L, n) => { const ex = L.get(n.i); if (!ex || ex.prob < n.prob - 1e-9 || (Math.abs(ex.prob - n.prob) <= 1e-9 && (n.rolls < ex.rolls || (n.rolls === ex.rolls && n.bend < ex.bend)))) L.set(n.i, n); };   // a igual costo gana la ruta con menos giros: sin zigzags
@@ -515,15 +596,15 @@ function computeMoves(p, o) {
             const li = idx(lx, ly); if (occ[li] || cheb(lx, ly, n.x, n.y) <= 1) continue;
             const jn = p.ag + jmod(Math.max(tz[n.i], tz[li])) + hard[n.i], lab = [];
             let pr = n.prob * clampP((7 - jn) / 6), rolls = n.rolls + 1;
-            for (const k of [s + 1, s + 2]) if (k > ma) { pr *= RP; rolls++; lab.push(rushNeed() + '+'); }
+            for (const k of [s + 1, s + 2]) if (k > ma) { pr *= RP; rolls++; lab.push(RN + '+'); }
             lab.push(Math.max(2, Math.min(6, jn)) + '+');
             put(layers[s + 2], { i: li, x: lx, y: ly, prob: pr, prev: n, steps: s + 2, rolls, jump: true, lab, bend: n.bend + 2, dir: null });
           }
           if (occ[ni]) continue;
         }
         let pr = n.prob, rolls = n.rolls; const lab = [];
-        if (s + 1 > ma) { pr *= RP; rolls++; lab.push(rushNeed() + '+'); }
-        if (marked) { const dn2 = p.ag + (stunty ? 0 : tz[ni]) + hard[n.i]; let ps = clampP((7 - dn2) / 6); if (dodgeRR && !tk[n.i]) ps = 1 - (1 - ps) * (1 - ps); pr *= ps; rolls++; lab.push(Math.max(2, Math.min(6, dn2)) + '+'); }
+        if (s + 1 > ma) { pr *= RP; rolls++; lab.push(RN + '+'); }
+        if (marked) { const dn2 = p.ag + (stunty ? 0 : tz[ni] - tzT[ni]) - (titchy ? 1 : 0) + hard[n.i]; let ps = clampP((7 - dn2) / 6); if (dodgeRR && !tk[n.i]) ps = 1 - (1 - ps) * (1 - ps); pr *= ps; rolls++; lab.push(Math.max(2, Math.min(6, dn2)) + '+'); }
         put(layers[s + 1], { i: ni, x, y, prob: pr, prev: n, steps: s + 1, rolls, lab, bend: n.bend + (n.dir && (n.dir[0] !== dx || n.dir[1] !== dy) ? 1 : 0), dir: [dx, dy] });
       }
     }
@@ -565,7 +646,7 @@ function surfPossible(ax, ay, e) {
   if (sq.some(([x, y]) => inPitch(x, y) && !playerAt(x, y))) return false;   // hay casilla libre: no hay surf
   return sq.some(([x, y]) => !inPitch(x, y));
 }
-async function pushBack(q, px, py, ctl, jug) {
+async function pushBack(q, px, py, ctl, jug, grab) {
   if (isFirm(q, jug)) { log(`${nm(q)} no se mueve de su casilla (${q.rooted ? 'enraizado' : 'Stand Firm'})`, 't' + q.team); return 'stay'; }
   const dx = Math.sign(q.x - px), dy = Math.sign(q.y - py);
   const c = (dx && dy) ? [[dx, dy], [dx, 0], [0, dy]] : dy === 0 ? [[dx, 0], [dx, -1], [dx, 1]] : [[0, dy], [-1, dy], [1, dy]];
@@ -573,7 +654,16 @@ async function pushBack(q, px, py, ctl, jug) {
   const empty = sq.filter(([x, y]) => inPitch(x, y) && !playerAt(x, y));
   const off = sq.filter(([x, y]) => !inPitch(x, y));
   let dest;
-  const side = has(q, 'Sidestep') ? DIRS.map(([ax, ay]) => [q.x + ax, q.y + ay]).filter(([x, y]) => inPitch(x, y) && !playerAt(x, y)) : [];
+  if (grab) {
+    const g = DIRS.map(([ax, ay]) => [q.x + ax, q.y + ay]).filter(([x, y]) => inPitch(x, y) && !playerAt(x, y));
+    if (g.length) {
+      dest = g.length === 1 ? g[0] : await ctl.choosePush(q, g, false);
+      q.x = dest[0]; q.y = dest[1]; render(); await sleep(120);
+      if (ballLoose() && G.ball.x === q.x && G.ball.y === q.y) await bounceBall(q.x, q.y);
+      return 'ok';
+    }
+  }
+  const side = has(q, 'Sidestep') && !grab ? DIRS.map(([ax, ay]) => [q.x + ax, q.y + ay]).filter(([x, y]) => inPitch(x, y) && !playerAt(x, y)) : [];
   if (side.length) { dest = side.length === 1 ? side[0] : await G.teams[q.team].ctrl.choosePush(q, side, true); log(`${nm(q)} elige a dónde va (Sidestep)`, 't' + q.team); }
   else if (empty.length) {   // regla: si hay una casilla libre, hay que usarla
     dest = empty.length === 1 ? empty[0] : await ctl.choosePush(q, empty, false);
@@ -606,8 +696,9 @@ async function foulAppearance(att, def) {
 }
 async function block(att, def, follow, o) {
   o = o || {};
+  if (!o.second && !o.bc) await trickster(att, def);
   const t = G.teams[att.team], actl = t.ctrl, dctl = G.teams[def.team].ctrl, blitz = !!o.blitz;
-  if (!o.second && !(await foulAppearance(att, def))) { finish(att); return; }
+  if (!o.second && !o.noFA && !(await foulAppearance(att, def))) { finish(att); return; }
   if (!o.second) await dumpOff(def);
   let stA = att.st + (blitz && has(att, 'Horns') ? 1 : 0);
   if (has(att, 'Dauntless') && def.st > stA) {
@@ -660,11 +751,11 @@ async function block(att, def, follow, o) {
   } else {
     const down = face === 'pow' || (face === 'stumble' && !(has(def, 'Dodge') && !has(att, 'Tackle')));
     if (face === 'stumble' && !down) log(`${nm(def)} esquiva el golpe (Dodge): solo empujón`);
-    let forced = has(att, 'Frenzy');
+    let forced = has(att, 'Frenzy') || !!o.bc;
     if (!forced && has(def, 'Taunt') && !isFirm(def, jug) && await dctl.confirm('taunt', `${nm(def)} tiene Taunt. ¿Obligar a ${nm(att)} a seguirlo tras el empujón?`, def)) { forced = true; log(`${nm(def)} provoca a ${nm(att)} (Taunt): debe seguirlo`, 't' + def.team); }
     const noFollow = has(def, 'Fend') && !jug;
     const fx = def.x, fy = def.y;
-    const res = await pushBack(def, att.x, att.y, actl, jug);
+    const res = await pushBack(def, att.x, att.y, actl, jug, has(att, 'Grab'));
     if (res !== 'stay' && has(att, 'Eye Gouge') && def.loc === 'pitch') { def.gouged = true; log(`${nm(att)} le mete los dedos en los ojos (Eye Gouge): ${nm(def)} no da asistencias hasta que se active`, 't' + att.team); }
     if (res !== 'stay' && !att.rooted && att.loc === 'pitch' && att.state === 'standing' && !playerAt(fx, fy)) {
       if (noFollow) log(`${nm(def)} mantiene la distancia (Fend): no se puede seguir`, 't' + def.team);
@@ -673,7 +764,7 @@ async function block(att, def, follow, o) {
         if (ballLoose() && G.ball.x === fx && G.ball.y === fy) await bounceBall(fx, fy);
       } else log(`${nm(att)} se queda en su casilla`, 't' + att.team);
     }
-    if (res === 'ok' && def.loc === 'pitch' && has(att, 'Strip Ball') && G.ball.carrier === def && !has(def, 'Sure Hands')) { log(`${nm(att)} le arranca el balón a ${nm(def)} (Strip Ball)`, 't' + att.team); G.ball.carrier = null; G.ball.x = def.x; G.ball.y = def.y; await bounceBall(def.x, def.y); }
+    if (res === 'ok' && def.loc === 'pitch' && has(att, 'Strip Ball') && G.ball.carrier === def && !has(def, 'Sure Hands') && !has(def, 'Monstrous Mouth')) { log(`${nm(att)} le arranca el balón a ${nm(def)} (Strip Ball)`, 't' + att.team); G.ball.carrier = null; G.ball.x = def.x; G.ball.y = def.y; await bounceBall(def.x, def.y); }
     if (res !== 'crowd' && down) await knockDown(def, { mb: mbA, claws, by: att });
     if (has(att, 'Frenzy') && !o.second && !G.turnover && G.td == null && att.loc === 'pitch' && att.state === 'standing' && def.loc === 'pitch' && def.state === 'standing' && cheb(att.x, att.y, def.x, def.y) === 1) {
       let can = true;
@@ -699,7 +790,20 @@ async function blitzBlock(p, e, follow, useStab) {
   if (useStab) await stab(p, e, true); else await block(p, e, follow, { blitz: true });
   return true;
 }
+/* Trickster: antes de tirar dados, el objetivo puede pasar a otra casilla libre junto al atacante */
+async function trickster(att, def) {
+  if (!has(def, 'Trickster') || def.loc !== 'pitch' || def.state !== 'standing' || def.rooted) return;
+  const sq = DIRS.map(([dx, dy]) => [att.x + dx, att.y + dy]).filter(([x, y]) => inPitch(x, y) && !playerAt(x, y) && !(ballLoose() && G.ball.x === x && G.ball.y === y));
+  if (!sq.length) return;
+  const ctl = G.teams[def.team].ctrl;
+  if (!(await ctl.confirm('trickster', `${nm(def)} tiene Trickster. ¿Moverlo a otra casilla junto a ${nm(att)} antes de que ataque?`, def))) return;
+  const dest = sq.length === 1 ? sq[0] : await ctl.choosePush(def, sq, true);
+  const had = G.ball.carrier === def;
+  def.x = dest[0]; def.y = dest[1]; log(`${nm(def)} se escabulle (Trickster)`, 't' + def.team); render(); await sleep(150);
+  if (had) checkTD();
+}
 async function stab(p, e, keep) {
+  await trickster(p, e);
   if (await foulAppearance(p, e)) {
     await dumpOff(e);
     const a = d6(), b = d6(), broke = a + b >= e.av, had = G.ball.carrier === e, sx = e.x, sy = e.y;
@@ -779,9 +883,10 @@ async function pass(p, tx, ty, o) {
   o = o || {};
   if (!o.dump && animosity(p, playerAt(tx, ty))) { finish(p); render(); return; }
   if (!o.dump) await onTheBallPass(p, tx, ty);
-  const band = rangeBand(p.x, p.y, tx, ty), mod = band + (has(p, 'Nerves of Steel') ? 0 : markers(p).length) + (wx('sunny') ? 1 : 0) + disturb(p)
+  const band = o.hm ? 3 : rangeBand(p.x, p.y, tx, ty), mod = band + (has(p, 'Nerves of Steel') ? 0 : markers(p).length) + (wx('sunny') ? 1 : 0) + disturb(p)
     - (has(p, 'Accurate') && band <= 1 ? 1 : 0) - (has(p, 'Cannoneer') && band >= 2 ? 1 : 0);
-  const ev = r => (r === 1 || r - mod <= 1) ? 'fumble' : (r === 6 || r - mod >= p.pa) ? 'ok' : 'bad';
+  const ev0 = r => (r === 1 || r - mod <= 1) ? 'fumble' : (r === 6 || r - mod >= p.pa) ? 'ok' : 'bad';
+  const ev = r => { const e = ev0(r); return o.hm && e === 'ok' ? 'bad' : e; };
   const txt = { ok: 'preciso', bad: 'impreciso', fumble: '¡se le cae el balón!' };
   let r = d6(), res = ev(r);
   await fxD6(p, 'Pase', Math.min(6, Math.max(2, p.pa + mod)), r, res === 'ok');
@@ -802,7 +907,7 @@ async function pass(p, tx, ty, o) {
       if (!inPitch(lx + dx, ly + dy)) { out = [lx + dx, ly + dy]; break; }
       lx += dx; ly += dy;
     }
-    const ic = bestInterceptor(p, lx, ly, has(p, 'Cloud Burster'));
+    const ic = o.hm ? null : bestInterceptor(p, lx, ly, has(p, 'Cloud Burster'));
     let caught = false;
     if (ic) {
       caught = await rollTest(ic.q, 'Intercepción', ic.need + (res === 'ok' ? 3 : 2), { team: false });
@@ -812,7 +917,9 @@ async function pass(p, tx, ty, o) {
   }
   if (o.dump) { checkTD(); render(); return; }
   if (!G.ball.carrier || G.ball.carrier.team !== p.team) G.turnover = true;
-  checkTD(); finish(p); render();
+  checkTD();
+  if (has(p, 'Give and Go') && band === 0 && !o.hm && !G.turnover && G.td == null && p.loc === 'pitch' && p.state === 'standing') { p.gng = true; log(`${nm(p)} sigue su activación (Give and Go)`, 'good'); render(); return; }
+  finish(p); render();
 }
 async function handoff(p, q) {
   if (animosity(p, q)) { finish(p); render(); return; }
@@ -820,13 +927,16 @@ async function handoff(p, q) {
   G.ball.carrier = null;
   await ballArrives(q.x, q.y, { mod: 0, last: [q.x, q.y] });
   if (!G.ball.carrier || G.ball.carrier.team !== p.team) G.turnover = true;
-  checkTD(); finish(p); render();
+  checkTD();
+  if (has(p, 'Give and Go') && !G.turnover && G.td == null && p.loc === 'pitch' && p.state === 'standing') { p.gng = true; log(`${nm(p)} sigue su activación (Give and Go)`, 'good'); render(); return; }
+  finish(p); render();
 }
 async function sendOff(p) {
   const t = G.teams[p.team]; let off = true, to = true;
   log(`¡El árbitro lo vio! ${nm(p)} es expulsado`, 'bad');
   if (t.canArgue) {
-    const r = d6();
+    let r = d6();
+    if (r === 1 && (t.rules || []).includes('Bribery') && !t.briberyUsed) { t.briberyUsed = true; log(`${t.name} usa Bribery and Corruption: repite el 1`, 'good'); r = d6(); }
     if (r === 6) { off = false; log(`${t.name} discute con el árbitro (6): ${nm(p)} se queda, pero igual hay turnover`, 'good'); }
     else { if (r === 1) t.canArgue = false; log(`${t.name} discute con el árbitro (${r}): sin efecto${r === 1 ? ' y no podrá discutir más en el partido' : ''}`, 't' + p.team); }
   }
@@ -857,7 +967,106 @@ async function foul(p, e) {
   if (dbl) await sendOff(p);
   finish(p); render();
 }
+/* ---------- acciones especiales: Mirada hipnótica, Aliento de fuego, Mordisco, Motosierra, Bola y cadena ---------- */
+async function gaze(p, e) {
+  await trickster(p, e);
+  if (!(await foulAppearance(p, e))) { finish(p); render(); return; }
+  const r = d6();
+  if (r >= 3) { e.distracted = true; log(`${nm(p)} hipnotiza a ${nm(e)} (${r}): queda distraído`, 'good'); }
+  else log(`${nm(p)} intenta hipnotizar a ${nm(e)} (${r}): sin efecto`, 't' + p.team);
+  await fxBanner('say', null, { title: r >= 3 ? 'Hipnotizado' : 'Mirada fallida', text: nm(e), c: G.teams[p.team].color, ms: 700 });
+  finish(p); render();
+}
+async function fire(p, e) {
+  await trickster(p, e);
+  if (!(await foulAppearance(p, e))) { finish(p); render(); return; }
+  const nat = d6(), r = nat - (e.st >= 5 ? 1 : 0);
+  log(`${nm(p)} escupe fuego sobre ${nm(e)}: ${nat}${e.st >= 5 ? '-1' : ''}`, 't' + p.team);
+  if (nat === 6) await knockDown(e, { by: p });
+  else if (r <= 1) { log(`${nm(p)} se quema a sí mismo`, 'bad'); await knockDown(p); }
+  else if (r >= 4) { log(`${nm(e)} cae al suelo`, 'good'); await placeProne(e); }
+  else log('El fuego no alcanza', 't' + p.team);
+  finish(p); render();
+}
+async function chomp(p, e) {
+  await trickster(p, e);
+  if (!(await foulAppearance(p, e))) { finish(p); render(); return; }
+  const r = d6();
+  if (r >= 3) { e.chompedBy = p; log(`${nm(p)} muerde a ${nm(e)} (${r}): no puede irse mientras lo marque`, 'good'); }
+  else log(`${nm(p)} no logra morder a ${nm(e)} (${r})`, 't' + p.team);
+  finish(p); render();
+}
+async function saw(p, e) {
+  await trickster(p, e);
+  if (!(await foulAppearance(p, e))) { finish(p); render(); return; }
+  const r = d6();
+  if (r === 1) { log(`${nm(p)}: la motosierra rebota (1)`, 'bad'); await knockDown(p); finish(p); render(); return; }
+  const ihs = has(e, 'Iron Hard Skin'), bonus = ihs ? 0 : 3;
+  await dumpOff(e);
+  const a = d6(), b = d6(), broke = a + b + bonus >= e.av, had = G.ball.carrier === e, sx = e.x, sy = e.y;
+  await fxD6(e, 'Armadura', e.av, [a, b], null, `Armadura ${e.av}+ · ${a + b}+${bonus}: ${broke ? 'se rompe' : 'aguanta'}`);
+  log(`${nm(p)} usa la motosierra sobre ${nm(e)}. Armadura ${e.av}+: ${a}+${b}+${bonus} ${broke ? 'rota' : 'aguanta'}`, 't' + p.team);
+  if (broke) {
+    await applyInjury(e, 0, false, p);
+    if (had && (e.loc !== 'pitch' || e.state !== 'standing')) { G.ball.carrier = null; G.ball.x = sx; G.ball.y = sy; await bounceBall(sx, sy); }
+  }
+  finish(p); render();
+}
+/* Bombardier: la bomba cae (o rebota) y explota; sin recepción ni intercepción (simplificado) */
+async function bombExplode(x, y, thrower) {
+  log(`¡La bomba explota en la casilla (${x + 1}, ${y + 1})!`, 'bad');
+  await fxBanner('say', null, { title: '¡Bomba!', text: 'Explota', c: '#d52b1e', ms: 700 });
+  const hit = pitchPlayers().filter(q => { const dd = cheb(q.x, q.y, x, y); return dd === 0 || (dd === 1 && d6() >= 4); });
+  for (const q of hit) {
+    if (q.loc !== 'pitch') continue;
+    if (q.state === 'standing') await knockDown(q, { by: thrower });
+    else { const st = q.state; await knockDown(q, { by: thrower, noTO: true }); if (q.loc === 'pitch' && st === 'stunned') q.state = 'stunned'; }
+  }
+  if (ballLoose() && G.ball.x === x && G.ball.y === y) await bounceBall(x, y);
+}
+async function throwBomb(p, tx, ty) {
+  G.bombUsed = true;
+  const band = rangeBand(p.x, p.y, tx, ty), mod = band + (has(p, 'Nerves of Steel') ? 0 : markers(p).length) + (wx('sunny') ? 1 : 0) + disturb(p) - (has(p, 'Accurate') && band <= 1 ? 1 : 0);
+  const need = Math.min(6, Math.max(2, p.pa + mod));
+  const ev = r => (r === 1 || r - mod <= 1) ? 'fumble' : (r === 6 || r - mod >= p.pa) ? 'ok' : 'bad';
+  let r = d6(), res = ev(r);
+  await fxD6(p, 'Bomba', need, r, res === 'ok');
+  log(`${nm(p)} lanza una bomba ${BAND_NAME[band] || ''} (${need}+): saca ${r}`, 't' + p.team);
+  if (res !== 'ok') {
+    if (has(p, 'Pass') || await teamReroll(p, 'Bomba')) { r = d6(); res = ev(r); await fxD6(p, 'Bomba (repite)', need, r, res === 'ok'); log(`Repite y saca ${r}`, 't' + p.team); }
+  }
+  let lx = tx, ly = ty;
+  if (res === 'fumble') { lx = p.x; ly = p.y; G.turnover = true; log('¡Se le cae la bomba!', 'bad'); }
+  else if (res === 'bad') for (let i = 0; i < 3; i++) { const [dx, dy] = DIRS[d(8) - 1]; if (!inPitch(lx + dx, ly + dy)) break; lx += dx; ly += dy; }
+  await bombExplode(lx, ly, p);
+  finish(p); checkTD(); render();
+}
+async function ballAndChain(p) {
+  let steps = Math.max(0, p.maLeft);
+  log(`${nm(p)} se pone a girar (Ball & Chain), hasta ${steps} casillas`, 't' + p.team);
+  while (steps-- > 0 && p.loc === 'pitch' && p.state === 'standing' && !G.turnover && G.td == null) {
+    const [dx, dy] = DIRS[d(8) - 1], nx = p.x + dx, ny = p.y + dy;
+    if (!inPitch(nx, ny)) { log(`${nm(p)} se sale del campo`, 'bad'); await crowdPush(p, nx, ny); break; }
+    const q = playerAt(nx, ny);
+    if (!q) {
+      p.x = nx; p.y = ny; render(); await sleep(170);
+      if (ballLoose() && G.ball.x === nx && G.ball.y === ny) await bounceBall(nx, ny);
+    } else if (q.state === 'standing') {
+      log(`${nm(p)} se estrella contra ${nm(q)}`, 't' + p.team);
+      await block(p, q, true, { bc: true, noFA: true });
+    } else {
+      const st = q.state, ox = p.x, oy = p.y;
+      log(`${nm(p)} arrolla a ${nm(q)}, que está en el suelo`, 't' + p.team);
+      const res = await pushBack(q, ox, oy, G.teams[p.team].ctrl, false);
+      if (res === 'crowd') continue;
+      if (q.loc === 'pitch') { await knockDown(q, { by: p, noTO: true }); if (q.loc === 'pitch' && st === 'stunned') q.state = 'stunned'; }
+      if (res !== 'stay' && p.loc === 'pitch' && !playerAt(nx, ny)) { p.x = nx; p.y = ny; render(); await sleep(170); if (ballLoose() && G.ball.x === nx && G.ball.y === ny) await bounceBall(nx, ny); }
+    }
+  }
+  finish(p); render();
+}
 async function vomit(p, e) {
+  await trickster(p, e);
   if (!(await foulAppearance(p, e))) { finish(p); render(); return; }
   await dumpOff(e);
   const r = d6(), tgt = r >= 2 ? e : p;
@@ -900,10 +1109,14 @@ async function throwTeammate(p, m, tx, ty) {
     log(`${nm(p)} lanza a ${nm(m)} (${Math.min(6, Math.max(2, p.pa + mod))}+): saca ${r}, ${txt[res]}`, 't' + p.team);
     if (res !== 'ok' && await teamReroll(p, 'Lanzar compañero')) { r = d6(); res = ev(r); log(`Repite y saca ${r}, ${txt[res]}`, 't' + p.team); }
   }
+  const kick = has(p, 'Kick Team-mate') && !has(p, 'Throw Team-mate');
   const auto = m.state !== 'standing' || m.distracted;
+  let swoop = false;
+  if (res !== 'fumble' && has(m, 'Swoop') && await G.teams[m.team].ctrl.confirm('swoop', `${nm(m)} tiene Swoop. ¿Evitar el rebote? Cae en una dirección y distancia al azar (D6 de distancia) desde el objetivo, pero puedes repetir el aterrizaje.`, m)) swoop = true;
   let x, y, lx, ly, fell = false, out = null;
   const fly = (dx, dy) => { if (!inPitch(x + dx, y + dy)) { out = [x + dx, y + dy]; return false; } x += dx; y += dy; return true; };
   if (res === 'fumble') { x = p.x; y = p.y; const [dx, dy] = DIRS[d(8) - 1]; fly(dx, dy); }
+  else if (swoop) { x = tx; y = ty; const [dx, dy] = DIRS[d(8) - 1]; for (let i = 0, n = d6(); i < n && !out; i++) fly(dx, dy); log(`${nm(m)} planea (Swoop)`, 't' + m.team); }
   else { x = tx; y = ty; for (let i = 0; i < 3 && !out; i++) { const [dx, dy] = DIRS[d(8) - 1]; fly(dx, dy); } }
   while (!out) {
     const q = playerAt(x, y);
@@ -919,10 +1132,11 @@ async function throwTeammate(p, m, tx, ty) {
     finish(p); render(); return;
   }
   m.x = x; m.y = y; render(); await sleep(250);
+  if (kick && res === 'fumble') { log(`${nm(p)} patea mal a ${nm(m)}: tirada de heridas`, 'bad'); m.stunKO = true; m.state = 'prone'; await applyInjury(m, 0, false); m.stunKO = false; if (m.loc !== 'pitch' && had) { G.ball.carrier = null; G.ball.x = x; G.ball.y = y; await bounceBall(x, y); } checkTD(); finish(p); render(); return; }
   if (fell || auto) await knockDown(m, { noTO: !had });
   else {
     const need = m.ag + (res === 'ok' ? 0 : 1) + markersAt(x, y, m.team).length;
-    if (await rollTest(m, 'Aterrizar', need, {})) {
+    if (await rollTest(m, 'Aterrizar', need, swoop ? { skill: 'Swoop' } : {})) {
       log(`${nm(m)} aterriza de pie`, 'good');
       if (ballLoose() && G.ball.x === x && G.ball.y === y) await bounceBall(x, y);
     } else await knockDown(m, { noTO: !had });
@@ -1058,7 +1272,7 @@ async function playTurn(a, live) {
   else {
   if (snapHook) snapHook('turn', a);
   G.active = a; G.turn[a]++; G.phase = 'turn'; G.turnover = false; G.cur = null;
-  G.blitzUsed = G.passUsed = G.handUsed = G.foulUsed = G.secureUsed = G.ttmUsed = G.puntUsed = false; G.pendingStall = null; G.charge = null;
+  G.blitzUsed = G.passUsed = G.handUsed = G.foulUsed = G.secureUsed = G.ttmUsed = G.puntUsed = G.bombUsed = G.kickUsed = false; G.pendingStall = null; G.charge = null;
   for (const p of allPlayers()) p.shadowUses = 0;
   for (const p of G.teams[a].players) { p.used = false; p.started = false; p.dodgeUsed = false; p.btUsed = false; p.sfUsed = false; p.blitzBlocked = false; p.stall = false; if (p.state === 'stunned') p.stunStart = true; }
   log(`Mitad ${G.half}, turno ${G.turn[a]} de ${G.teams[a].name}`, 'hd');
@@ -1066,12 +1280,23 @@ async function playTurn(a, live) {
   }
   await G.teams[a].ctrl.playTurn();
   if (G.cur) finish(G.cur);
+  if (!G.turnover && G.td == null && G.teams[a].ctrl.endTurnExtras) await G.teams[a].ctrl.endTurnExtras();
+  await resolveBite();
   if (!G.turnover && G.td == null) {
     const c = G.ball.carrier;
     if (!G.pendingStall && c && c.team === a && !c.started && !has(c, 'Bone Head') && !has(c, 'Really Stupid') && freeScore(c)) G.pendingStall = c;
     await resolveStall();
   }
   G.teams[a].cheerAssist = false;
+  if (G.td == null) for (const t of G.teams) if (t.i !== a) {
+    const pm = t.players.filter(q => q.loc === 'pitch' && q.state === 'standing' && has(q, 'Pick-me-up'));
+    const done = new Set();
+    for (const h of pm) for (const q of t.players) {
+      if (q === h || done.has(q) || q.loc !== 'pitch' || q.state !== 'prone' || cheb(q.x, q.y, h.x, h.y) > 3) continue;
+      done.add(q); const r = d6();
+      if (r >= 5) { q.state = 'standing'; log(`${nm(h)} levanta a ${nm(q)} (Pick-me-up, ${r})`, 'good'); }
+    }
+  }
   for (const p of G.teams[a].players) if (p.loc === 'pitch' && p.state === 'stunned' && p.stunStart) { p.state = 'prone'; p.stunStart = false; }
   if (G.turnover && G.td == null) { log('¡Turnover!', 'bad'); await fxBanner('turnover', G.teams[a]); await sleep(300); }
   else if (G.td == null) await fxBanner('end', G.teams[a]);
@@ -1085,7 +1310,7 @@ async function drive(kicker, rs) {
   autoSetup(kicker, true); autoSetup(1 - kicker, false); render();
   await G.teams[kicker].ctrl.setup(true);
   await G.teams[1 - kicker].ctrl.setup(false);
-  for (const p of allPlayers()) p.heat = false;
+  for (const p of allPlayers()) { p.heat = false; p.inDrive = p.loc === 'pitch'; }
   if (G.halfStart) { G.halfStart = false; for (const t of G.teams) { t.leaderRR = t.players.some(p => p.loc === 'pitch' && has(p, 'Leader')); if (t.leaderRR) log(`${t.name} tiene un reroll extra por Leader`, 't' + t.i); } }
   await kickoff(kicker);
   }
@@ -1104,6 +1329,9 @@ async function drive(kicker, rs) {
   }
 }
 function endDrive() {
+  for (const p of allPlayers()) if (has(p, 'Secret Weapon') && p.inDrive && p.loc !== 'sent' && p.loc !== 'cas') {
+    log(`${nm(p)} es expulsado al terminar la jugada (Secret Weapon)`, 'bad'); p.loc = 'sent'; p.x = p.y = -1; p.state = 'standing';
+  }
   if (wx('heat')) {
     const n = d3();
     for (const t of G.teams) for (const p of pickRandom(t.players.filter(q => q.loc === 'pitch'), n)) { p.heat = true; log(`${nm(p)} se desmaya por el calor y se pierde la próxima entrada`, 't' + p.team); }
