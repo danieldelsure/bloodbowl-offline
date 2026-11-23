@@ -40,7 +40,7 @@ class AI {
     if (!c || c.team !== this.t || c.state !== 'standing' || G.turn[this.t] >= TURNS) return null;
     return new Set(this.avail().filter(p => p !== c && p.state === 'standing').sort((a, b) => cheb(a.x, a.y, c.x, c.y) - cheb(b.x, b.y, c.x, c.y)).slice(0, 3));
   }
-  passMin(last) { return last ? 0.05 : 0.5; }
+  passMin(last) { return last ? 0 : 0.5; }   // último turno: siempre intenta el pase, sin importar la probabilidad
   async tryPassAdvance() { return false; }   // AI2: entregas y pases cortos para mover el balón con equipos lentos
   carrierFit() { return 0; }   // AI2: quién conviene que lleve el balón, a igualdad de probabilidad de recogerlo
   longOk() { return false; }   // AI2: equipos con buen pase pueden intentar pase largo para anotar
@@ -58,7 +58,10 @@ class AI {
     try {
       await this.tryPunt(); if (this.over()) return;
       const c = G.ball.carrier;
-      if (c && c.team === this.t && await this.tryPassScore(true)) return;
+      if (c && c.team === this.t) {
+        if (this.passPick(true).bs < 0.35) { await this.prepPass(c); if (this.over()) return; }
+        if (G.ball.carrier === c && await this.tryPassScore(true)) return;
+      }
       await this.doBlocks(2); if (this.over()) return;
       await this.doBlitz(); if (this.over()) return;
       await this.doBlocks(2); if (this.over()) return;
@@ -304,7 +307,7 @@ class AI {
           const info = blockDice(p, e);
           if ((!info.attChooses && !this.bashing) || info.n < minDice) continue;
           if (info.n === 1 && !this.oneDieOk(p, e)) continue;
-          const s = info.n * 10 + (G.ball.carrier === e ? 50 : 0) + this.carrierThreat(e) + (surfPossible(p.x, p.y, e) ? 14 : 0) + this.hitX(e) * 0.3 + (has(p, 'Block') ? 3 : 0) + (has(p, 'Mighty Blow') ? 2 : 0) - (has(e, 'Block') ? 2 : 0);
+          const s = info.n * 10 + (G.ball.carrier === e ? 50 : 0) + (this.prep && this.prep.has(e) ? 25 : 0) + this.carrierThreat(e) + (surfPossible(p.x, p.y, e) ? 14 : 0) + this.hitX(e) * 0.3 + (has(p, 'Block') ? 3 : 0) + (has(p, 'Mighty Blow') ? 2 : 0) - (has(e, 'Block') ? 2 : 0);
           if (s > bs) { bs = s; best = [p, e]; }
         }
       }
@@ -336,7 +339,7 @@ class AI {
           if (prob < this.blitzMin(isC)) continue;
           p.x = x; p.y = y; const info = blockDice(p, e, p.st + (has(p, 'Horns') ? 1 : 0)); p.x = ox; p.y = oy;
           if ((!info.attChooses && !has(p, 'Stab') && !this.bashing) || (info.n < this.blitzDice(p) && !isC && !has(p, 'Stab'))) continue;
-          const s = prob * (info.n * 10 + (isC ? this.hitC() : 0) + this.carrierThreat(e) + (surfPossible(x, y, e) ? 14 : 0) + this.hitX(e) + (myC && cheb(e.x, e.y, myC.x, myC.y) === 1 ? 8 : 0) + (has(p, 'Block') ? 3 : 0));
+          const s = prob * (info.n * 10 + (isC ? this.hitC() : 0) + (this.prep && this.prep.has(e) ? 20 : 0) + this.carrierThreat(e) + (surfPossible(x, y, e) ? 14 : 0) + this.hitX(e) + (myC && cheb(e.x, e.y, myC.x, myC.y) === 1 ? 8 : 0) + (has(p, 'Block') ? 3 : 0));
           if (s > bs) { bs = s; best = { p, e, node, info }; }
         }
       }
@@ -399,23 +402,29 @@ class AI {
     finish(c);
   }
   async tryPassScore(last) {
-    const c = G.ball.carrier; if (!c || c.state !== 'standing' || has(c, 'My Ball')) return false;
-    const gx = goalX(this.t); let best = null, bs = this.passMin(last);
-    for (const t of this.avail()) {
-      if (t === c || t.state !== 'standing') continue;
-      const adj = cheb(c.x, c.y, t.x, t.y) === 1, band = rangeBand(c.x, c.y, t.x, t.y);
-      let p1;
-      if (adj && !G.handUsed) p1 = 1;
-      else { if (G.passUsed || c.noPA || band < 0 || band > (wx('blizzard') ? 1 : last || this.longOk() ? 2 : 1)) continue; p1 = clampP((7 - (c.pa + band + markers(c).length)) / 6); if (has(c, 'Pass')) p1 = 1 - (1 - p1) * (1 - p1); }
-      let pc = clampP((7 - (t.ag + markers(t).length)) / 6); if (has(t, 'Catch')) pc = 1 - (1 - pc) * (1 - pc);
-      let pz = 0;
-      if (t.x === gx) pz = 1; else { const n = this.scoreNode(t); if (n) pz = n.prob; }
-      const s = p1 * pc * pz;
-      if (s > bs) { bs = s; best = { t, hand: adj && !G.handUsed }; }
+    const c = G.ball.carrier; if (!c) return false;
+    const cache = new Map();
+    let { best, bs } = this.passPick(last, cache), go = null;
+    /* el portador puede moverse y luego pasar: busca una casilla segura desde donde el pase salga mejor (menos marcas, mejor distancia) */
+    if (c.state === 'standing' && !c.used && !c.started && !has(c, 'My Ball') && !c.rooted) {
+      const mv = computeMoves(c), ox = c.x, oy = c.y; let top = best ? bs * 1.1 : 0;
+      for (const n of mv.values()) {
+        if (n.prob < this.advThr() || (n.x === ox && n.y === oy)) continue;
+        c.x = n.x; c.y = n.y;
+        const k = this.passPick(last, cache);
+        c.x = ox; c.y = oy;
+        const v = k.best ? k.bs * n.prob : 0;
+        if (v > top) { top = v; go = { n, best: k.best }; }
+      }
+      if (go) best = go.best;
     }
     if (!best) return false;
     const { t, hand } = best;
     if (!(await begin(c, hand ? 'handoff' : 'pass'))) { finish(c); return true; }
+    if (go) {
+      const r = await moveAlong(c, pathOf(go.n));
+      if (this.over() || r !== 'ok' || c.state !== 'standing' || G.ball.carrier !== c) { finish(c); return true; }
+    }
     if (hand) await handoff(c, t); else await pass(c, t.x, t.y);
     await this.pause();
     if (this.over()) return true;
@@ -425,6 +434,44 @@ class AI {
       finish(t);
     }
     return true;
+  }
+  /* mejor pase/entrega para anotar según probabilidad (sin ejecutarlo) */
+  passPick(last, cache) {
+    const c = G.ball.carrier; if (!c || c.state !== 'standing' || has(c, 'My Ball')) return { best: null, bs: 0 };
+    const gx = goalX(this.t); let best = null, bs = this.passMin(last);
+    for (const t of this.avail()) {
+      if (t === c || t.state !== 'standing') continue;
+      const adj = cheb(c.x, c.y, t.x, t.y) === 1, band = rangeBand(c.x, c.y, t.x, t.y);
+      let p1;
+      if (adj && !G.handUsed) p1 = 1;
+      else { if (G.passUsed || c.noPA || band < 0 || band > (wx('blizzard') ? 1 : last || this.longOk() ? 2 : 1)) continue; p1 = clampP((7 - (c.pa + band + markers(c).length)) / 6); if (has(c, 'Pass')) p1 = 1 - (1 - p1) * (1 - p1); }
+      let cz = cache && cache.get(t);
+      if (!cz) {
+        let pc = clampP((7 - (t.ag + markers(t).length)) / 6); if (has(t, 'Catch')) pc = 1 - (1 - pc) * (1 - pc);
+        let pz = 0;
+        if (t.x === gx) pz = 1; else { const n = this.scoreNode(t); if (n) pz = n.prob; }
+        cz = pc * pz; if (cache) cache.set(t, cz);
+      }
+      const s = p1 * cz;
+      if (s > bs) { bs = s; best = { t, hand: adj && !G.handUsed }; }
+    }
+    return { best, bs };
+  }
+  /* pase poco probable en el último turno: antes de tirarlo, liberar al portador y a los receptores con bloqueos y Blitz seguros */
+  async prepPass(c) {
+    const gx = goalX(this.t), prep = new Set();
+    const recv = this.mine().filter(q => q !== c && q.loc === 'pitch' && q.state === 'standing' && !q.big && (q.x === gx || ((this.scoreNode(q) || { prob: 0 }).prob >= 0.3)));
+    for (const e of this.foes()) {
+      if (e.state !== 'standing') continue;
+      if (cheb(e.x, e.y, c.x, c.y) === 1 || recv.some(q => cheb(e.x, e.y, q.x, q.y) === 1)) prep.add(e);
+    }
+    if (!prep.size) return;
+    this.prep = prep; this.bashing = false;
+    try {
+      await this.doBlocks(2); if (this.over()) return;
+      if (G.ball.carrier === c) await this.doBlitz(); if (this.over()) return;
+      if (G.ball.carrier === c) await this.doBlocks(2);
+    } finally { this.prep = null; this.bashing = true; }
   }
   async position() {
     const c = G.ball.carrier;
@@ -581,7 +628,7 @@ class AI2 extends AI {
   oneDieOk(p, e) { return this.bashing ? true : this.f.thr && this.carrierThreat(e) >= 40 && has(p, 'Block') ? true : this.rk() < -0.5 ? has(p, 'Block') : super.oneDieOk(p, e); }
   advThr() { const r = this.rk(); return r < -0.5 ? 0.999 : r > 0.5 ? 0.8 : 0.95; }
   passMin(last) {
-    if (last) return 0.05;
+    if (last) return 0;
     if (this.urgent()) return 0.25;
     const r = this.rk(); let m = r < -0.5 ? 0.8 : r > 0.5 ? 0.35 : 0.5;
     if (this.plan().scoring === 'fast') m = Math.min(m, 0.4);
@@ -672,7 +719,7 @@ class AI2 extends AI {
           if (info.n < minDice && !(has(p, 'Block') || G.ball.carrier === e)) continue;
           const { ev, pBad } = this.evalDice(p, e, info.n, true);
           if (isC ? pBad > this.f.pBadK : pBad > (G.ball.carrier === e ? this.f.pBadC : this.f.pBadO)) continue;
-          const s = ev + (G.ball.carrier === e ? 6 : 0) + (has(p, 'Mighty Blow') ? 1 : 0) - markers(p).length * 0.3;
+          const s = ev + (G.ball.carrier === e ? 6 : 0) + (this.prep && this.prep.has(e) ? 4 : 0) + (has(p, 'Mighty Blow') ? 1 : 0) - markers(p).length * 0.3;
           if (s > bs) { bs = s; best = [p, e]; }
         }
       }
