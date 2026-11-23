@@ -309,14 +309,24 @@
       },
       done: 'Una pantalla gana tiempo: dos líneas con respaldo, que retroceden juntas al ritmo del portador, y cazadores libres para presionar. No hay que comprometer a todo el equipo en ella.' }
     ,
-    { title: 'Último turno: cuenta las casillas', turns: 1, rr: 1,
-      intro: 'Es el <b>último turno</b> de los orcos y tienen el balón. Antes de reaccionar, <b>cuenta</b>: un jugador avanza su <b>MA</b> y puede esprintar <b>2 casillas más</b>. Ese es su alcance máximo. Si lo dejas más lejos del fondo que ese alcance, <b>no puede anotar</b>, aunque nadie lo toque. Y un derribado gasta 3 de MA en levantarse. Empujarlo una casilla hacia atrás puede ser suficiente.',
-      setup(o) { o.C = TP(1, 'orc_lineman', 7, 7); giveBall(o.C); o.X1 = TP(1, 'orc_lineman', 9, 6); o.X2 = TP(1, 'orc_lineman', 9, 8); o.A = TP(0, 'human_lineman', 6, 7); o.H = TP(0, 'human_lineman', 6, 6); TP(0, 'human_lineman', 4, 5); TP(0, 'human_lineman', 4, 9); },
-      hl: (o, r) => Array.from({ length: 15 }, (_, y) => [0, y]).concat([[o.C.x, o.C.y]]),
-      turnText: o => `El orco con balón es un Línea: <b>MA ${o.C.ma} + 2 de esprint = ${o.C.ma + 2}</b>. Está a <b>${o.C.x}</b> casillas del fondo (la columna dorada): justo llega, y la IA lo intentará. Si lo empujas una casilla hacia atrás queda a ${o.C.x + 1} y ya no alcanza. Selecciona a tu Línea pegado a él, haz clic en el orco y elige <b>Bloquear</b> (2 dados con la asistencia). Con <b>Empujón</b> o <b>POW</b> lo alejas; con Tropiezo o POW además cae. Después aprieta <b>Terminar turno</b>.`,
-      afterHuman(o, r) { const c = G.ball.carrier; if (c && c.team === 1 && c.loc === 'pitch') { const reach = c.state === 'standing' ? c.ma + 2 : Math.max(0, c.ma - 3) + 2; if (c.x <= reach) return ['fail', `<b class="ct-bad">Todavía le alcanza.</b> El portador sigue a ${c.x} casillas del fondo y puede avanzar hasta ${reach}. Tienes que dejarlo a más de ${c.ma + 2} casillas: empújalo hacia atrás o derríbalo. Reintenta.`]; } return null; },
-      afterAI(o, r) { if (G.td === 1) return ['fail', '<b class="ct-bad">Los orcos anotaron.</b> Cuenta siempre el alcance del portador (MA + 2 de esprint) contra la distancia al fondo. Reintenta.']; return 'won'; },
-      done: 'Contar casillas gana partidos: si el portador no llega, no hace falta derribarlo ni quitarle el balón, basta con alejarlo o hacerle perder movimiento. Haz esta cuenta en el último turno del rival y en cada turno antes de decidir cómo defender.' },
+    { title: 'Último turno: dos amenazas', turns: 1, rr: 1,
+      intro: 'Es el <b>último turno</b> de los orcos y están a punto de anotar. El orco con balón está lejos, pero tiene a <b>dos receptores</b> cerca de tu zona de anotación: puede darles un <b>pase</b> o una <b>entrega</b>. Tienes 3 jugadores y no puedes frenar todo: <b>saca a uno con un Blitz</b> y <b>marca</b> al otro, porque a un receptor marcado le cuesta más atrapar. Si dejas a alguno libre, anotan fácil.',
+      setup(o) {
+        G.turn = [7, 7];   /* el turno que viene es el 8 de 8: la IA juega como en su último turno */
+        o.C = TP(1, 'orc_thrower', 9, 7); giveBall(o.C); o.R1 = TP(1, 'orc_blitzer', 3, 4); o.R2 = TP(1, 'orc_blitzer', 3, 10);
+        o.B = TP(0, 'human_blitzer', 7, 5); o.M1 = TP(0, 'human_blitzer', 7, 9); o.M2 = TP(0, 'human_lineman', 6, 7);
+      },
+      hl: o => [[o.R1.x, o.R1.y], [o.R2.x, o.R2.y], [o.C.x, o.C.y]],
+      turnText: o => 'Los dos orcos de tu zona de anotación pueden recibir el balón. <b>1.</b> Usa a tu Blitzer: selecciónalo, <b>Blitz</b>, haz clic en uno de ellos y bloquéalo. <b>2.</b> Con los otros dos jugadores, <b>pégate al otro receptor</b> (y a cualquiera que siga de pie) para marcarlo. Opcional: marca también al portador, así su pase sale peor. Al terminar, aprieta <b>Terminar turno</b>.',
+      afterHuman(o, r) {
+        const open = [o.R1, o.R2].filter(q => q.loc === 'pitch' && q.state === 'standing' && !G.teams[0].players.some(h => h.loc === 'pitch' && h.state === 'standing' && Math.max(Math.abs(h.x - q.x), Math.abs(h.y - q.y)) === 1));
+        if (open.length) return ['fail', `<b class="ct-bad">Dejaste ${open.length > 1 ? 'libres a los dos receptores' : 'libre a un receptor'}.</b> Un receptor sin marcar atrapa con facilidad y, estando a 3 casillas de la zona de anotación, anota casi seguro. Tumba a uno con el Blitz y pega a tus otros jugadores al otro. Reintenta.`];
+        const c = G.ball.carrier;
+        if (c && c.team === 1 && c.loc === 'pitch' && c.state === 'standing' && c.x <= c.ma + 2) return ['fail', '<b class="ct-bad">El portador puede anotar corriendo.</b> Reintenta.'];
+        return null;
+      },
+      afterAI(o, r) { if (G.td === 1) return ['fail', '<b>Podemos hacer todo lo posible, pero Nuffle puede tener otros planes.</b> Dejaste la defensa bien armada y aun así la IA anotó con un pase o una entrega. Pasa: los dados mandan. Reintenta para otra tirada.']; return 'won'; },
+      done: 'En el último turno no se puede detener todo: se elige qué amenaza sacar con el Blitz y cuáles marcar. Un receptor marcado atrapa peor, y un pase desde un portador marcado sale peor. Así le haces la jugada lo más difícil posible.' },
     { title: 'La línea de scrimmage', info: INFO_LOS, intro: 'La <b>línea de scrimmage</b> es la fila pegada al centro. Quien patea debe poner al menos 3 jugadores ahí, y se nombran por su separación: <b>101</b> (pegados), <b>202</b> y <b>303</b> (lo más abiertos posible). Aquí ves cómo se arma tu ataque contra cada una, <b>en la cancha</b>: toca una para verla.', steps: [], setup() {}, done: '' },
     { title: 'Formaciones de ataque', info: INFO_ATT, intro: 'Una formación es cómo ubicas a tus 11 jugadores antes de la patada. Aquí tienes las de ataque que ofrece el juego, <b>armadas en la cancha</b>: toca una para verla. Cuando <b>recibes</b>, la formación decide si podrás armar un cage, pasar o pegar. ' + FORM_RULES, steps: [], setup() {}, done: '' },
     { title: 'Principios de defensa', info: INFO_PRIN, intro: 'Casi toda defensa se basa en la <b>pantalla</b>: dos compañeros con no más de dos casillas vacías entre ellos, de modo que sus zonas de defensa se tocan o se cruzan. Hay tres formas de combinarlas, más la regla de los compañeros. Toca cada una para verla <b>en la cancha</b>.', steps: [], setup() {}, done: '' },
@@ -446,7 +456,7 @@
   const SEC_DEF = [
     { name: 'Básico', sub: 'Mover, bloquear, asistir y el primer Blitz', t: ['Moverte y esprintar', 'Recoger el balón y anotar', 'El bloqueo', 'Asistencias', 'Los dados de bloqueo', 'Blitz'] },
     { name: 'Intermedio', sub: 'Esquivar, pasar, surf y formaciones', t: ['Esquivar (dodge)', 'Skills clave', 'Elegir el bloqueo seguro', 'Seguir o no seguir', 'Pase', 'Surf: al público', 'Liberar al portador con un Blitz', 'La línea de scrimmage', 'Formaciones de ataque', 'Principios de defensa', 'Formaciones de defensa'] },
-    { name: 'Avanzado', sub: 'Cadenas, surf de equipo, pases y defensa', t: ['Surf con dos jugadores', 'Empujón en cadena (chain push)', 'Empujón en cadena y surf', 'Liberar al receptor y pasar', 'Avanzar con caja (cage)', 'Cage: abrir hueco y rellenar', 'Cage: flanco atacado', 'Defender con pantalla (screen)', 'Último turno: cuenta las casillas'] }
+    { name: 'Avanzado', sub: 'Cadenas, surf de equipo, pases y defensa', t: ['Surf con dos jugadores', 'Empujón en cadena (chain push)', 'Empujón en cadena y surf', 'Liberar al receptor y pasar', 'Avanzar con caja (cage)', 'Cage: abrir hueco y rellenar', 'Cage: flanco atacado', 'Defender con pantalla (screen)', 'Último turno: dos amenazas'] }
   ];
   function tutSections() {
     const used = new Set(), out = SEC_DEF.map(sc => ({ name: sc.name, sub: sc.sub, ids: sc.t.map(t => LESSONS.findIndex(l => l.title === t)).filter(i => i >= 0) }));
