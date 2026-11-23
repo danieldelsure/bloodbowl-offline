@@ -366,7 +366,7 @@ if (!HEADLESS) (function () {
     ctx.fillStyle = G.teams[0].color + '40'; ctx.fillRect(0, 0, S, H * S);
     ctx.fillStyle = G.teams[1].color + '40'; ctx.fillRect((W - 1) * S, 0, S, H * S);
     if ((ui.phase === 'setup' || ui.phase === 'snap') && ui.limit) for (const p of ui.limit.open) if (p.loc === 'pitch') { ctx.fillStyle = ui.limit.moved.has(p) ? '#ffffff30' : '#f2b63250'; ctx.fillRect(p.x * S + 2, p.y * S + 2, S - 4, S - 4); }
-    if (ui.tutBands && ui.phase === 'turn' && ui.sel && ui.mode === 'pass' && G.ball.carrier === ui.sel) {
+    if (ui.phase === 'turn' && ui.sel && ((ui.mode === 'pass' && G.ball.carrier === ui.sel) || (ui.mode === 'bomb' && has(ui.sel, 'Bombardier')))) {   // rango del pase (y de la bomba): verde rápido, amarillo corto, naranja largo, rojo bomba
       const BC = ['#3fbf5f66', '#ffd23f66', '#ff9a2f70', '#e04a3a70'];
       for (let yy = 0; yy < H; yy++) for (let xx = 0; xx < W; xx++) { const bd = rangeBand(ui.sel.x, ui.sel.y, xx, yy); if (bd >= 0 && !(xx === ui.sel.x && yy === ui.sel.y)) { ctx.fillStyle = BC[bd]; ctx.fillRect(xx * S + 1, yy * S + 1, S - 2, S - 2); } }
     }
@@ -552,7 +552,7 @@ if (!HEADLESS) (function () {
   function hint() {
     const s = ui.sel;
     if (ui.mode === 'blitz') return '<b>Blitz.</b> Haz clic en el rival al que quieres golpear para marcarlo; después eliges por dónde llegar. También puedes moverlo antes casilla por casilla.';
-    if (ui.mode === 'pass') return '<b>Pase.</b> Mueve al lanzador si quieres y luego haz clic en el compañero que recibe.';
+    if (ui.mode === 'pass') return '<b>Pase.</b> Mueve al lanzador si quieres y luego haz clic en el compañero que recibe. Alcance: <span style="color:#3fbf5f">■</span> rápido · <span style="color:#e0b800">■</span> corto · <span style="color:#ff9a2f">■</span> largo · <span style="color:#e04a3a">■</span> bomba.';
     if (ui.mode === 'handoff') return '<b>Entrega en mano.</b> Mueve al portador y luego haz clic en un compañero adyacente.';
     if (ui.mode === 'foul') return '<b>Falta.</b> Mueve al jugador y luego haz clic en un rival caído adyacente.';
     if (ui.mode === 'ttm') return '<b>Lanzar compañero.</b> Mueve al lanzador si quieres, luego haz clic en un compañero adyacente con Right Stuff y después en la casilla de destino.';
@@ -720,9 +720,8 @@ if (!HEADLESS) (function () {
         return;
       }
       if (ui.mode === 'move' && !s.started && !go && has(s, 'Ball & Chain')) {
-        const bc = $('bBC');
-        if (!bc || bc.disabled) { msg('Con Bola y cadena solo puedes usar la acción "Bola y cadena": no hay Bloqueo ni Blitz.'); return; }
-        showMenu(x, y, [['Bola y cadena · gira al azar y bloquea a quien se cruce', () => bc.click(), 'pri'], ['No hacer nada', () => {}]]); return;
+        if (G.charge) { msg('Con Bola y cadena solo puedes usar la acción "Bola y cadena": no hay Bloqueo ni Blitz.'); return; }
+        showMenu(x, y, [['Bola y cadena · eliges el lado y el D6 decide', () => $('bBC').onclick(), 'pri'], ['No hacer nada', () => {}]]); return;
       }
       if (ui.mode === 'move' && !s.started && !go) {
         const items = [], canBlock = adj && (s.state === 'standing' || has(s, 'Jump Up')) && !G.charge && !has(s, 'Ball & Chain');
@@ -800,7 +799,7 @@ if (!HEADLESS) (function () {
     const add = (label, fn) => items.push([label, fn]);
     if (s.started) add('Terminar acción', () => guard(async () => { if (ui.sel) { finish(ui.sel); ui.sel = null; } }));
     else {
-      if (has(s, 'Ball & Chain') && !$('bBC').disabled) items.push(['Bola y cadena · eliges el lado y el D6 decide', () => $('bBC').onclick(), 'pri']);
+      if (has(s, 'Ball & Chain') && !G.charge) items.push(['Bola y cadena · eliges el lado y el D6 decide', () => $('bBC').onclick(), 'pri']);
       if (s.state === 'prone') add('Levantarse y terminar acción', () => guard(standAndEnd));
       add('Terminar acción (no hará nada este turno)', () => guard(async () => { if (ui.sel) { finish(ui.sel); ui.sel = null; } }));
       add('Soltar jugador', () => { ui.sel = null; ui.mode = 'move'; refresh(); msg(turnMsg()); });
@@ -808,7 +807,7 @@ if (!HEADLESS) (function () {
     showMenu(x, y, items);
   }
   function showBCMenu(x, y) {
-    if ($('bBC').disabled) return;
+    if (G.charge) return;
     showMenu(x, y, [['Bola y cadena · eliges el lado y el D6 decide', () => $('bBC').onclick(), 'pri'], ['No hacer nada', () => {}]]);
   }
   function showMenu(x, y, items) {
