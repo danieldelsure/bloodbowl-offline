@@ -623,7 +623,7 @@ setTimeout(function(){window.__boot&&window.__boot(1)},20000);
           <li>Los 31 equipos del Partido rápido usan las listas BB2025. Las habilidades de sus fichas están programadas, salvo las que se indican como pendientes. Plague Ridden solo se activa si el jugador mata a un rival con un bloqueo.</li>
           <li>Armas secretas (Secret Weapon): salen expulsadas al terminar la jugada. Acciones propias: Apuñalar, Vómito, Mirada hipnótica, Aliento de fuego, Mordisco, Motosierra, Lanzar bomba y Bola y cadena.</li>
           <li>También programados: Kick Team-mate, Swoop (lo ofrece el juego al lanzado), Trickster, Fumblerooski (botón antes de moverte con el balón), Give and Go y Hail Mary Pass (botón, para el pasador con balón).</li>
-          <li>Simplificaciones: la Mirada hipnótica no deja moverse antes; el Aliento de fuego, el Mordisco y la Motosierra no reemplazan un bloqueo de Blitz; la bomba explota donde cae (nadie la ataja ni la intercepta); en Bola y cadena la dirección de cada casilla es al azar entre las 8. La IA no usa Hail Mary, Fumblerooski ni Swoop, y con Give and Go no sigue moviendo tras el pase.</li>
+          <li>Simplificaciones: la Mirada hipnótica no deja moverse antes; el Aliento de fuego, el Mordisco y la Motosierra no reemplazan un bloqueo de Blitz; la bomba explota donde cae (nadie la ataja ni la intercepta); en Bola y cadena eliges hacia qué lado apunta cada casilla (arriba, abajo, izquierda o derecha) y el D6 decide entre recto y las dos diagonales. La IA no usa Hail Mary, Fumblerooski ni Swoop, y con Give and Go no sigue moviendo tras el pase.</li>
           <li>Goblins Nocturnos es provisional: GW publicó la lista esta semana y aún no confirma el tier ni el costo del reroll (puse tier 4 y reroll de 70.000). Se ajustará cuando salga el PDF oficial.</li>
           <li>Pendiente: las reglas especiales de equipo (Swarming de los Snotlings, Masters of Undeath; Bribery solo repite el 1 al discutir), plegarias a Nuffle y el armado de equipos con presupuesto.</li>
 
@@ -1957,11 +1957,16 @@ async function throwBomb(p, tx, ty) {
   await bombExplode(lx, ly, p);
   finish(p); checkTD(); render();
 }
+const BC_FACE = { '1,0': 'a la derecha', '-1,0': 'a la izquierda', '0,-1': 'hacia arriba', '0,1': 'hacia abajo' };
 async function ballAndChain(p) {
   let steps = Math.max(0, p.maLeft);
   log(`${nm(p)} se pone a girar (Ball & Chain), hasta ${steps} casillas`, 't' + p.team);
   while (steps-- > 0 && p.loc === 'pitch' && p.state === 'standing' && !G.turnover && G.td == null) {
-    const [dx, dy] = DIRS[d(8) - 1], nx = p.x + dx, ny = p.y + dy;
+    /* regla: el entrenador elige hacia dónde apunta la plantilla de lanzamiento (arriba, abajo o hacia una banda) y luego un D6 decide: 1-2 una diagonal, 3-4 recto, 5-6 la otra diagonal */
+    const [fx, fy] = await G.teams[p.team].ctrl.chooseBCFacing(p);
+    const rb = d6(), side = fx === 0 ? [[-1, fy], [1, fy]] : [[fx, -1], [fx, 1]];
+    const [dx, dy] = rb <= 2 ? side[0] : rb <= 4 ? [fx, fy] : side[1], nx = p.x + dx, ny = p.y + dy;
+    log(`${nm(p)} apunta ${BC_FACE[fx + ',' + fy]} y saca ${rb}: ${rb <= 2 || rb >= 5 ? 'diagonal' : 'recto'}`, 't' + p.team);
     if (!inPitch(nx, ny)) { log(`${nm(p)} se sale del campo`, 'bad'); await crowdPush(p, nx, ny); break; }
     const q = playerAt(nx, ny);
     if (!q) {
@@ -2554,6 +2559,24 @@ class AI {
     const need = q => q.ag + markers(q).length;
     const b = c.slice().sort((x, y) => need(x) - need(y))[0];
     return need(b) <= 4 ? b : null;
+  }
+  /* Bola y cadena: elige hacia qué lado apuntar (el D6 reparte entre recto y las dos diagonales) */
+  async chooseBCFacing(p) {
+    let best = [1, 0], bs = -1e9;
+    for (const [fx, fy] of [[1, 0], [-1, 0], [0, -1], [0, 1]]) {
+      const sq = fx === 0 ? [[-1, fy], [1, fy]] : [[fx, -1], [fx, 1]]; sq.push([fx, fy]);
+      let v = Math.random() * 0.05;
+      for (const [dx, dy] of sq) {
+        const x = p.x + dx, y = p.y + dy;
+        if (!inPitch(x, y)) { v -= 0.6; continue; }
+        const o = playerAt(x, y);
+        if (!o) { v += 0.05; continue; }
+        if (o.state !== 'standing') { v += o.team === p.team ? -0.2 : 0.3; continue; }
+        v += o.team === p.team ? -1.5 : (G.ball.carrier === o ? 1.5 : 1);
+      }
+      if (v > bs) { bs = v; best = [fx, fy]; }
+    }
+    return best;
   }
   async choosePush(q, squares, own) {
     if (own) {
@@ -3564,6 +3587,10 @@ if (!HEADLESS) (function () {
       const sq = await new Promise(res => { ui.pick = { ok: (x, y) => (x === p.x && y === p.y) || squares.some(s => s[0] === x && s[1] === y), res }; });
       ui.hl = null; return (sq[0] === p.x && sq[1] === p.y) ? null : sq;
     }
+    async chooseBCFacing(p) {
+      return ask(`<h2>Bola y cadena</h2><p>Elige hacia dónde apunta ${nm(p)}. Después se lanza un D6: 1-2 va a una diagonal, 3-4 va recto, 5-6 va a la otra diagonal. Si en esa casilla hay alguien, lo bloquea (rival o compañero).</p>`,
+        [{ label: '↑ Arriba', value: [0, -1] }, { label: '↓ Abajo', value: [0, 1] }, { label: '← Izquierda', value: [-1, 0] }, { label: '→ Derecha', value: [1, 0], primary: true }]);
+    }
     async choosePush(q, squares, own) {
       const off = squares.filter(([x, y]) => !inPitch(x, y)), on = squares.filter(([x, y]) => inPitch(x, y));
       if (off.length && !own) {
@@ -3903,6 +3930,7 @@ if (!HEADLESS) (function () {
     msg(`<b>Blitz a ${nm(q)} marcado.</b> Elige una casilla blanca, desde donde lo golpearás: tu jugador va hasta ahí y bloquea. También puedes avanzar casilla por casilla. Clic de nuevo en ${nm(q)} para ir por la ruta más segura.`);
   }
   async function runBlitz(s, q, adj, chosen) {
+    if (has(s, 'Ball & Chain')) return;
     let best = chosen;
     if (!adj || s.state === 'prone') {
       const mv = computeMoves(s, { reserve: 1, action: 'blitz' });
@@ -4017,10 +4045,16 @@ if (!HEADLESS) (function () {
         if (!(await ensureStarted('vomit'))) return; await vomit(s, q); ui.sel = null; return;
       }
       if (ui.mode === 'blitz') {
+        if (has(s, 'Ball & Chain')) { ui.mode = 'move'; refresh(); msg('Con Bola y cadena no se puede declarar Bloqueo ni Blitz: usa el botón "Bola y cadena" y bloqueará a quien se cruce.'); return; }
         if (s.blitzBlocked) return;
         if (!adj && ui.blitzTarget !== q) { markBlitz(s, q); return; }
         await runBlitz(s, q, adj, null);
         return;
+      }
+      if (ui.mode === 'move' && !s.started && !go && has(s, 'Ball & Chain')) {
+        const bc = $('bBC');
+        if (!bc || bc.disabled) { msg('Con Bola y cadena solo puedes usar la acción "Bola y cadena": no hay Bloqueo ni Blitz.'); return; }
+        showMenu(x, y, [['Bola y cadena · gira al azar y bloquea a quien se cruce', () => bc.click(), 'pri'], ['No hacer nada', () => {}]]); return;
       }
       if (ui.mode === 'move' && !s.started && !go) {
         const items = [], canBlock = adj && (s.state === 'standing' || has(s, 'Jump Up')) && !G.charge && !has(s, 'Ball & Chain');
@@ -5182,7 +5216,7 @@ if (!HEADLESS) (function () {
     d.children[2].onclick = () => d.remove();
     document.body.appendChild(d);
   }
-  const BUILD_ID = '177391aada';
+  const BUILD_ID = 'f4ee4184f1';
   async function checkUpdate() {   // compara esta versión con la publicada (version.json, siempre desde la red)
     try { const r = await fetch('version.json?chk=' + Date.now(), { cache: 'no-store' }); if (r.ok && (await r.json()).id !== BUILD_ID) offerUpdate(); } catch (e) { }
   }

@@ -262,6 +262,24 @@ class AI {
     const b = c.slice().sort((x, y) => need(x) - need(y))[0];
     return need(b) <= 4 ? b : null;
   }
+  /* Bola y cadena: elige hacia qué lado apuntar (el D6 reparte entre recto y las dos diagonales) */
+  async chooseBCFacing(p) {
+    let best = [1, 0], bs = -1e9;
+    for (const [fx, fy] of [[1, 0], [-1, 0], [0, -1], [0, 1]]) {
+      const sq = fx === 0 ? [[-1, fy], [1, fy]] : [[fx, -1], [fx, 1]]; sq.push([fx, fy]);
+      let v = Math.random() * 0.05;
+      for (const [dx, dy] of sq) {
+        const x = p.x + dx, y = p.y + dy;
+        if (!inPitch(x, y)) { v -= 0.6; continue; }
+        const o = playerAt(x, y);
+        if (!o) { v += 0.05; continue; }
+        if (o.state !== 'standing') { v += o.team === p.team ? -0.2 : 0.3; continue; }
+        v += o.team === p.team ? -1.5 : (G.ball.carrier === o ? 1.5 : 1);
+      }
+      if (v > bs) { bs = v; best = [fx, fy]; }
+    }
+    return best;
+  }
   async choosePush(q, squares, own) {
     if (own) {
       let b = squares[0], v = 1e9;

@@ -244,6 +244,10 @@ if (!HEADLESS) (function () {
       const sq = await new Promise(res => { ui.pick = { ok: (x, y) => (x === p.x && y === p.y) || squares.some(s => s[0] === x && s[1] === y), res }; });
       ui.hl = null; return (sq[0] === p.x && sq[1] === p.y) ? null : sq;
     }
+    async chooseBCFacing(p) {
+      return ask(`<h2>Bola y cadena</h2><p>Elige hacia dónde apunta ${nm(p)}. Después se lanza un D6: 1-2 va a una diagonal, 3-4 va recto, 5-6 va a la otra diagonal. Si en esa casilla hay alguien, lo bloquea (rival o compañero).</p>`,
+        [{ label: '↑ Arriba', value: [0, -1] }, { label: '↓ Abajo', value: [0, 1] }, { label: '← Izquierda', value: [-1, 0] }, { label: '→ Derecha', value: [1, 0], primary: true }]);
+    }
     async choosePush(q, squares, own) {
       const off = squares.filter(([x, y]) => !inPitch(x, y)), on = squares.filter(([x, y]) => inPitch(x, y));
       if (off.length && !own) {
@@ -583,6 +587,7 @@ if (!HEADLESS) (function () {
     msg(`<b>Blitz a ${nm(q)} marcado.</b> Elige una casilla blanca, desde donde lo golpearás: tu jugador va hasta ahí y bloquea. También puedes avanzar casilla por casilla. Clic de nuevo en ${nm(q)} para ir por la ruta más segura.`);
   }
   async function runBlitz(s, q, adj, chosen) {
+    if (has(s, 'Ball & Chain')) return;
     let best = chosen;
     if (!adj || s.state === 'prone') {
       const mv = computeMoves(s, { reserve: 1, action: 'blitz' });
@@ -697,10 +702,16 @@ if (!HEADLESS) (function () {
         if (!(await ensureStarted('vomit'))) return; await vomit(s, q); ui.sel = null; return;
       }
       if (ui.mode === 'blitz') {
+        if (has(s, 'Ball & Chain')) { ui.mode = 'move'; refresh(); msg('Con Bola y cadena no se puede declarar Bloqueo ni Blitz: usa el botón "Bola y cadena" y bloqueará a quien se cruce.'); return; }
         if (s.blitzBlocked) return;
         if (!adj && ui.blitzTarget !== q) { markBlitz(s, q); return; }
         await runBlitz(s, q, adj, null);
         return;
+      }
+      if (ui.mode === 'move' && !s.started && !go && has(s, 'Ball & Chain')) {
+        const bc = $('bBC');
+        if (!bc || bc.disabled) { msg('Con Bola y cadena solo puedes usar la acción "Bola y cadena": no hay Bloqueo ni Blitz.'); return; }
+        showMenu(x, y, [['Bola y cadena · gira al azar y bloquea a quien se cruce', () => bc.click(), 'pri'], ['No hacer nada', () => {}]]); return;
       }
       if (ui.mode === 'move' && !s.started && !go) {
         const items = [], canBlock = adj && (s.state === 'standing' || has(s, 'Jump Up')) && !G.charge && !has(s, 'Ball & Chain');

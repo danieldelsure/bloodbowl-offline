@@ -1041,11 +1041,16 @@ async function throwBomb(p, tx, ty) {
   await bombExplode(lx, ly, p);
   finish(p); checkTD(); render();
 }
+const BC_FACE = { '1,0': 'a la derecha', '-1,0': 'a la izquierda', '0,-1': 'hacia arriba', '0,1': 'hacia abajo' };
 async function ballAndChain(p) {
   let steps = Math.max(0, p.maLeft);
   log(`${nm(p)} se pone a girar (Ball & Chain), hasta ${steps} casillas`, 't' + p.team);
   while (steps-- > 0 && p.loc === 'pitch' && p.state === 'standing' && !G.turnover && G.td == null) {
-    const [dx, dy] = DIRS[d(8) - 1], nx = p.x + dx, ny = p.y + dy;
+    /* regla: el entrenador elige hacia dónde apunta la plantilla de lanzamiento (arriba, abajo o hacia una banda) y luego un D6 decide: 1-2 una diagonal, 3-4 recto, 5-6 la otra diagonal */
+    const [fx, fy] = await G.teams[p.team].ctrl.chooseBCFacing(p);
+    const rb = d6(), side = fx === 0 ? [[-1, fy], [1, fy]] : [[fx, -1], [fx, 1]];
+    const [dx, dy] = rb <= 2 ? side[0] : rb <= 4 ? [fx, fy] : side[1], nx = p.x + dx, ny = p.y + dy;
+    log(`${nm(p)} apunta ${BC_FACE[fx + ',' + fy]} y saca ${rb}: ${rb <= 2 || rb >= 5 ? 'diagonal' : 'recto'}`, 't' + p.team);
     if (!inPitch(nx, ny)) { log(`${nm(p)} se sale del campo`, 'bad'); await crowdPush(p, nx, ny); break; }
     const q = playerAt(nx, ny);
     if (!q) {
