@@ -310,23 +310,29 @@
       done: 'Una pantalla gana tiempo: dos líneas con respaldo, que retroceden juntas al ritmo del portador, y cazadores libres para presionar. No hay que comprometer a todo el equipo en ella.' }
     ,
     { title: 'Último turno: dos amenazas', turns: 1, rr: 1,
-      intro: 'Es el <b>último turno</b> de los orcos y están a punto de anotar. El orco con balón está lejos, pero tiene a <b>dos receptores</b> cerca de tu zona de anotación: puede darles un <b>pase</b> o una <b>entrega</b>. Tienes 3 jugadores y no puedes frenar todo: <b>saca a uno con un Blitz</b> y <b>marca</b> al otro, porque a un receptor marcado le cuesta más atrapar. Si dejas a alguno libre, anotan fácil.',
+      intro: 'Es el <b>último turno</b> de los orcos y están a punto de anotar: su Lanzador tiene el balón y dos <b>receptores</b> esperan cerca de tu zona de anotación (pase o entrega). Pero tus jugadores están <b>trabados</b>: casi todos están marcados por un orco. Primero hay que <b>liberarlos con bloqueos</b>; luego, un Blitz a un receptor y <b>2 marcadores</b> sobre el otro. Si un bloqueo falla se acaba tu turno y la IA juega igual: así es este juego, de dados y probabilidades.',
       setup(o) {
-        G.turn = [7, 7];   /* el turno que viene es el 8 de 8: la IA juega como en su último turno */
-        o.C = TP(1, 'orc_thrower', 9, 7); giveBall(o.C); o.R1 = TP(1, 'orc_blitzer', 3, 4); o.R2 = TP(1, 'orc_blitzer', 3, 10);
-        o.B = TP(0, 'human_blitzer', 7, 5); o.M1 = TP(0, 'human_blitzer', 7, 9); o.M2 = TP(0, 'human_lineman', 6, 7);
+        G.turn = [8, 7];   /* el turno que viene es el 8 de 8: la IA juega como en su último turno */
+        o.O1 = TP(1, 'orc_lineman', 8, 4); o.O2 = TP(1, 'orc_bigunblocker', 7, 8);
+        o.C = TP(1, 'orc_thrower', 13, 7); giveBall(o.C); TP(1, 'orc_lineman', 12, 6); TP(1, 'orc_lineman', 12, 8); TP(1, 'orc_lineman', 14, 6); TP(1, 'orc_lineman', 14, 8);
+        o.R1 = TP(1, 'orc_blitzer', 3, 4); o.R2 = TP(1, 'orc_blitzer', 3, 11);
+        o.B1 = TP(0, 'human_blitzer', 7, 3); o.L1 = TP(0, 'human_lineman', 8, 5); o.L6 = TP(0, 'human_lineman', 6, 7); o.L3 = TP(0, 'human_lineman', 5, 6);
+        o.L5 = TP(0, 'human_lineman', 7, 9); o.B2 = TP(0, 'human_blitzer', 8, 9); o.L2 = TP(0, 'human_lineman', 6, 9);
       },
       hl: o => [[o.R1.x, o.R1.y], [o.R2.x, o.R2.y], [o.C.x, o.C.y]],
-      turnText: o => 'Los dos orcos de tu zona de anotación pueden recibir el balón. <b>1.</b> Usa a tu Blitzer: selecciónalo, <b>Blitz</b>, haz clic en uno de ellos y bloquéalo. <b>2.</b> Con los otros dos jugadores, <b>pégate al otro receptor</b> (y a cualquiera que siga de pie) para marcarlo. Opcional: marca también al portador, así su pase sale peor. Al terminar, aprieta <b>Terminar turno</b>.',
+      turnText: o => '<b>1.</b> Libera a tus jugadores: bloquea a los orcos que los marcan (con los compañeros pegados como asistencia). <b>2.</b> Con un Blitzer ya libre, <b>Blitz</b> a uno de los receptores. <b>3.</b> Con los jugadores liberados, <b>pégate al otro receptor</b>: cada receptor que siga de pie necesita <b>2 marcadores</b> tuyos. Si un bloqueo falla, se acaba tu turno y veremos qué pasa. Al terminar, aprieta <b>Terminar turno</b>.',
+      aiMsg: o => o.nuffle ? '<b>Nuffle tiene la palabra.</b> Falló una tirada y se acabó tu turno antes de tiempo. Veamos qué hace la IA con tu defensa a medias…' : null,
       afterHuman(o, r) {
-        const open = [o.R1, o.R2].filter(q => q.loc === 'pitch' && q.state === 'standing' && !G.teams[0].players.some(h => h.loc === 'pitch' && h.state === 'standing' && Math.max(Math.abs(h.x - q.x), Math.abs(h.y - q.y)) === 1));
-        if (open.length) return ['fail', `<b class="ct-bad">Dejaste ${open.length > 1 ? 'libres a los dos receptores' : 'libre a un receptor'}.</b> Un receptor sin marcar atrapa con facilidad y, estando a 3 casillas de la zona de anotación, anota casi seguro. Tumba a uno con el Blitz y pega a tus otros jugadores al otro. Reintenta.`];
+        if (G.turnover) { o.nuffle = true; return null; }
+        const mk = q => G.teams[0].players.filter(h => h.loc === 'pitch' && h.state === 'standing' && Math.max(Math.abs(h.x - q.x), Math.abs(h.y - q.y)) === 1).length;
         const c = G.ball.carrier;
-        if (c && c.team === 1 && c.loc === 'pitch' && c.state === 'standing' && c.x <= c.ma + 2) return ['fail', '<b class="ct-bad">El portador puede anotar corriendo.</b> Reintenta.'];
+        if (!c || c.team !== 1 || c.state !== 'standing') return null;
+        const open = [o.R1, o.R2].filter(q => q.loc === 'pitch' && q.state === 'standing' && mk(q) < 2);
+        if (open.length) return ['fail', `<b class="ct-bad">${open.length > 1 ? 'Los dos receptores quedaron' : 'Un receptor quedó'} con poca marca.</b> Cada receptor en pie necesita al menos 2 jugadores tuyos pegados: así atrapa con -2 y le cuesta mucho más. Libera a tus jugadores con bloqueos, usa un Blitz para tumbar a uno y marca al otro con dos. Reintenta.`];
         return null;
       },
-      afterAI(o, r) { if (G.td === 1) return ['fail', '<b>Podemos hacer todo lo posible, pero Nuffle puede tener otros planes.</b> Dejaste la defensa bien armada y aun así la IA anotó con un pase o una entrega. Pasa: los dados mandan. Reintenta para otra tirada.']; return 'won'; },
-      done: 'En el último turno no se puede detener todo: se elige qué amenaza sacar con el Blitz y cuáles marcar. Un receptor marcado atrapa peor, y un pase desde un portador marcado sale peor. Así le haces la jugada lo más difícil posible.' },
+      afterAI(o, r) { if (G.td === 1) return ['fail', (o.nuffle ? '<b>Un bloqueo falló y tu turno se acabó antes de tiempo.</b> ' : '') + '<b>Podemos hacer todo lo posible, pero Nuffle puede tener otros planes.</b> Blood Bowl es un juego de suerte y probabilidades: a veces la defensa bien armada igual pierde. Reintenta para otra tirada.']; return 'won'; },
+      done: 'En el último turno no se puede detener todo: se libera a los jugadores, se tumba a un receptor y se marca al otro entre varios. Cada marcador le resta 1 al que recibe. Y si un dado falla, se aprende lo más importante: es un juego de probabilidades.' },
     { title: 'La línea de scrimmage', info: INFO_LOS, intro: 'La <b>línea de scrimmage</b> es la fila pegada al centro. Quien patea debe poner al menos 3 jugadores ahí, y se nombran por su separación: <b>101</b> (pegados), <b>202</b> y <b>303</b> (lo más abiertos posible). Aquí ves cómo se arma tu ataque contra cada una, <b>en la cancha</b>: toca una para verla.', steps: [], setup() {}, done: '' },
     { title: 'Formaciones de ataque', info: INFO_ATT, intro: 'Una formación es cómo ubicas a tus 11 jugadores antes de la patada. Aquí tienes las de ataque que ofrece el juego, <b>armadas en la cancha</b>: toca una para verla. Cuando <b>recibes</b>, la formación decide si podrás armar un cage, pasar o pegar. ' + FORM_RULES, steps: [], setup() {}, done: '' },
     { title: 'Principios de defensa', info: INFO_PRIN, intro: 'Casi toda defensa se basa en la <b>pantalla</b>: dos compañeros con no más de dos casillas vacías entre ellos, de modo que sus zonas de defensa se tocan o se cruzan. Hay tres formas de combinarlas, más la regla de los compañeros. Toca cada una para verla <b>en la cancha</b>.', steps: [], setup() {}, done: '' },
@@ -396,7 +402,7 @@
     let r = tut.round;
     for (;;) {
       let v = L.afterHuman(tut.o, r); if (v) return fin(v);
-      tut.aiRun = true; ui.tutHl = null; tut.hlKey = null; $('ctStep').innerHTML = '<b>Juega la IA…</b> Mira cómo responde.'; draw();
+      tut.aiRun = true; ui.tutHl = null; tut.hlKey = null; $('ctStep').innerHTML = (L.aiMsg && L.aiMsg(tut.o)) || '<b>Juega la IA…</b> Mira cómo responde.'; draw();
       await playTurn(1, false); tut.aiRun = false; if (g !== tut.gen) return;
       v = L.afterAI(tut.o, r); if (v) return fin(v);
       tut.round = ++r;
