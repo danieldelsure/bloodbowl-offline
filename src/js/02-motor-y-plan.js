@@ -763,7 +763,7 @@ async function block(att, def, follow, o) {
     if (face === 'stumble' && !down) log(`${nm(def)} esquiva el golpe (Dodge): solo empujón`);
     let forced = has(att, 'Frenzy') || !!o.bc;
     if (!forced && has(def, 'Taunt') && !isFirm(def, jug) && await dctl.confirm('taunt', `${nm(def)} tiene Taunt. ¿Obligar a ${nm(att)} a seguirlo tras el empujón?`, def)) { forced = true; log(`${nm(def)} provoca a ${nm(att)} (Taunt): debe seguirlo`, 't' + def.team); }
-    const noFollow = has(def, 'Fend') && !jug;
+    const noFollow = has(def, 'Fend') && !jug && !o.bc;   // Bola y cadena debe seguir siempre que empuje: Fend no lo detiene
     const fx = def.x, fy = def.y;
     const res = await pushBack(def, att.x, att.y, actl, jug, has(att, 'Grab'));
     if (res !== 'stay' && has(att, 'Eye Gouge') && def.loc === 'pitch') { def.gouged = true; log(`${nm(att)} le mete los dedos en los ojos (Eye Gouge): ${nm(def)} no da asistencias hasta que se active`, 't' + att.team); }
