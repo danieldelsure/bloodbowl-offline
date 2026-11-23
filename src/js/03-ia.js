@@ -262,6 +262,10 @@ class AI {
     const b = c.slice().sort((x, y) => need(x) - need(y))[0];
     return need(b) <= 4 ? b : null;
   }
+  /* Squig Rage (1-2): elige a qué rival marcado bloquear; primero el portador del balón, después el más débil */
+  async chooseRageTarget(p, foes) {
+    return foes.slice().sort((a, b) => (G.ball.carrier === b) - (G.ball.carrier === a) || a.st - b.st)[0];
+  }
   /* Bola y cadena: elige hacia qué lado apuntar (el D6 reparte entre recto y las dos diagonales) */
   async chooseBCFacing(p) {
     let best = [1, 0], bs = -1e9;

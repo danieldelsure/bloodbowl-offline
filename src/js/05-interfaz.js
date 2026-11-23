@@ -244,9 +244,20 @@ if (!HEADLESS) (function () {
       const sq = await new Promise(res => { ui.pick = { ok: (x, y) => (x === p.x && y === p.y) || squares.some(s => s[0] === x && s[1] === y), res }; });
       ui.hl = null; return (sq[0] === p.x && sq[1] === p.y) ? null : sq;
     }
+    async chooseRageTarget(p, foes) {
+      msg(`<b>Squig Rage.</b> ${nm(p)} se descontrola: elige a qué rival marcado va a morder (hará un Bloqueo contra él).`);
+      ui.moves = new Map(); ui.hover = null; ui.hl = { squares: foes.map(q => [q.x, q.y]), color: '#e0503cbb' }; draw();
+      const [x, y] = await new Promise(res => { ui.pick = { ok: (a, b) => foes.some(q => q.x === a && q.y === b), res }; });
+      ui.hl = null; draw();
+      return playerAt(x, y);
+    }
     async chooseBCFacing(p) {
-      return ask(`<h2>Bola y cadena</h2><p>Elige hacia dónde apunta ${nm(p)}. Después se lanza un D6: 1-2 va a una diagonal, 3-4 va recto, 5-6 va a la otra diagonal. Si en esa casilla hay alguien, lo bloquea (rival o compañero).</p>`,
-        [{ label: '↑ Arriba', value: [0, -1] }, { label: '↓ Abajo', value: [0, 1] }, { label: '← Izquierda', value: [-1, 0] }, { label: '→ Derecha', value: [1, 0], primary: true }]);
+      const sq = [[1, 0], [-1, 0], [0, -1], [0, 1]].map(([a, b]) => [p.x + a, p.y + b]).filter(([x, y]) => inPitch(x, y));
+      msg(`<b>Bola y cadena.</b> Haz clic en la casilla marcada hacia donde apunta ${nm(p)}. Después se tira un D6: 1-2 diagonal, 3-4 recto, 5-6 la otra diagonal.`);
+      ui.moves = new Map(); ui.hover = null; ui.hl = { squares: sq, color: '#f2b632aa' }; draw();
+      const [x, y] = await new Promise(res => { ui.pick = { ok: (a, b) => sq.some(k => k[0] === a && k[1] === b), res }; });
+      ui.hl = null; draw();
+      return [x - p.x, y - p.y];
     }
     async choosePush(q, squares, own) {
       const off = squares.filter(([x, y]) => !inPitch(x, y)), on = squares.filter(([x, y]) => inPitch(x, y));
@@ -487,7 +498,7 @@ if (!HEADLESS) (function () {
     set('bBomb', fresh && has(s, 'Bombardier') && !G.bombUsed && s.state === 'standing' && !G.charge, ui.mode === 'bomb');
     $('bBomb').hidden = !(ui.phase === 'turn' && s && has(s, 'Bombardier'));
     set('bBC', fresh && has(s, 'Ball & Chain') && !G.charge, false);
-    $('bBC').hidden = !(ui.phase === 'turn' && s && has(s, 'Ball & Chain'));
+    $('bBC').hidden = true;
     if (s && has(s, 'Ball & Chain')) for (const id of ['bBlitz', 'bPass', 'bHand', 'bFoul', 'bSecure', 'bStand', 'bTTM', 'bVomit', 'bStab', 'bPunt']) $(id).disabled = true;
     set('bPunt', turn && s && has(s, 'Punt') && ((!s.started && !G.puntUsed) || (s.started && s.action === 'punt')), ui.mode === 'punt');
     $('bPunt').hidden = !(ui.phase === 'turn' && s && has(s, 'Punt'));
@@ -678,7 +689,7 @@ if (!HEADLESS) (function () {
         if (!(await ensureStarted('ttm'))) return;
         await throwTeammate(s, q, tx, ty); ui.sel = null; return;
       }
-      if (!q.used && q.state !== 'stunned' && q !== s) { select(q); return; }
+      if (!q.used && q.state !== 'stunned' && q !== s) { select(q); if (has(q, 'Ball & Chain') && !q.started) showBCMenu(q.x, q.y); return; }
       card(q); return;
     }
     if (!s) { if (q) card(q); return; }
@@ -746,6 +757,17 @@ if (!HEADLESS) (function () {
       if (ui.sel === s && ui.blitzTarget && t.loc === 'pitch' && t.state === 'standing') { if (cheb(s.x, s.y, t.x, t.y) === 1) { clearBlitzMark(); msg('<b>Blitz.</b> Ya estás al lado: clic en ' + nm(t) + ' para bloquear.'); } else markBlitz(s, t); }
       return;
     }
+    if (node && (has(s, 'Pogo Stick') || has(s, 'Leap')) && s.state === 'standing' && !q && !(s.started && s.action === 'block') && cheb(s.x, s.y, x, y) === 2) {
+      const walk = computeMoves(s, { action: ui.mode, noJump: true }).get(idx(x, y));
+      if (walk) {
+        const pogo = has(s, 'Pogo Stick'), need = Math.max(2, Math.min(6, s.ag - (has(s, 'Very Long Legs') ? 1 : 0)));
+        showMenu(x, y, [
+          [`Saltar (${pogo ? 'Pogo Stick' : 'Leap'}) · AG ${pogo ? need + '+' : ''} sin modificadores · cuesta 2 de movimiento`, () => guard(() => doMove({ prob: 1, rolls: 1, x, y, jump: true, prev: { prev: null, x: s.x, y: s.y } })), 'pri'],
+          [`Caminar · ${walk.prob >= 0.999 ? 'sin tiradas' : Math.round(walk.prob * 100) + '% de llegar'}`, () => guard(() => doMove(walk))],
+          ['No hacer nada', () => {}]]);
+        return;
+      }
+    }
     if (node && !(s.started && s.action === 'block')) { await doMove(node); return; }
     if (!node && ui.mode === 'pass' && G.ball.carrier === s && s.state === 'standing') {
       const band = rangeBand(s.x, s.y, x, y);
@@ -778,11 +800,16 @@ if (!HEADLESS) (function () {
     const add = (label, fn) => items.push([label, fn]);
     if (s.started) add('Terminar acción', () => guard(async () => { if (ui.sel) { finish(ui.sel); ui.sel = null; } }));
     else {
+      if (has(s, 'Ball & Chain') && !$('bBC').disabled) items.push(['Bola y cadena · eliges el lado y el D6 decide', () => $('bBC').onclick(), 'pri']);
       if (s.state === 'prone') add('Levantarse y terminar acción', () => guard(standAndEnd));
       add('Terminar acción (no hará nada este turno)', () => guard(async () => { if (ui.sel) { finish(ui.sel); ui.sel = null; } }));
       add('Soltar jugador', () => { ui.sel = null; ui.mode = 'move'; refresh(); msg(turnMsg()); });
     }
     showMenu(x, y, items);
+  }
+  function showBCMenu(x, y) {
+    if ($('bBC').disabled) return;
+    showMenu(x, y, [['Bola y cadena · eliges el lado y el D6 decide', () => $('bBC').onclick(), 'pri'], ['No hacer nada', () => {}]]);
   }
   function showMenu(x, y, items) {
     const el = $('ctx'), r = cv.getBoundingClientRect();

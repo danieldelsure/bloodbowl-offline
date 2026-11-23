@@ -423,16 +423,26 @@ async function begin(p, action) {
     const r = d6();
     if (r === 1) { p.rooted = true; log(`${nm(p)} echa raíces (Take Root, 1): no podrá moverse hasta el final de la entrada o hasta que lo derriben`, 'bad'); }
   }
-  if (has(p, 'Squig Rage') && !G.teams[p.team].players.some(q => q !== p && q.loc === 'pitch' && q.state === 'standing' && has(q, 'Squig Restraint') && cheb(q.x, q.y, p.x, p.y) <= 3)) {
-    const r = d6();
-    if (r <= 2) {
-      const foes = G.teams[1 - p.team].players.filter(q => q.loc === 'pitch' && q.state === 'standing' && cheb(q.x, q.y, p.x, p.y) === 1);
-      const mates = G.teams[p.team].players.filter(q => q !== p && q.loc === 'pitch' && q.state === 'standing' && cheb(q.x, q.y, p.x, p.y) === 1);
-      log(`${nm(p)}: Squig Rage, saca ${r} y se descontrola`, 'bad');
-      if (p.state === 'prone' && has(p, 'Jump Up') && foes.length) p.state = 'standing';
-      if (p.state === 'standing' && foes.length) { await block(p, foes[d(foes.length) - 1], true, {}); finish(p); render(); return false; }
-      if (mates.length) { const m = mates[d(mates.length) - 1]; log(`${nm(p)} se lanza contra su compañero ${nm(m)}`, 'bad'); await knockDown(m, { by: p }); }
-      else { p.distracted = true; finish(p); render(); return false; }
+  if (has(p, 'Squig Rage')) {
+    /* regla: al activarse, antes de declarar la acción, tira un D6; con 3+ sigue normal. Con 1-2 debe bloquear a un rival que marca (aunque tenga Bola y cadena). Squig Restraint: los compañeros a 3 casillas de un portador de pie no tiran */
+    const pastor = G.teams[p.team].players.find(q => q !== p && q.loc === 'pitch' && q.state === 'standing' && has(q, 'Squig Restraint') && cheb(q.x, q.y, p.x, p.y) <= 3);
+    if (pastor) log(`${nm(p)} está cerca de ${nm(pastor)} (Squig Restraint): no tira Squig Rage`, 't' + p.team);
+    else {
+      const r = d6(); await fxD6(p, 'Squig Rage', 3, r, r >= 3);
+      if (r >= 3) log(`${nm(p)}: Squig Rage, saca ${r} y se activa normal`, 't' + p.team);
+      else {
+        const foes = G.teams[1 - p.team].players.filter(q => q.loc === 'pitch' && q.state === 'standing' && cheb(q.x, q.y, p.x, p.y) === 1);
+        const mates = G.teams[p.team].players.filter(q => q !== p && q.loc === 'pitch' && q.state === 'standing' && cheb(q.x, q.y, p.x, p.y) === 1);
+        log(`${nm(p)}: Squig Rage, saca ${r} y se descontrola`, 'bad');
+        if (p.state === 'prone' && has(p, 'Jump Up') && foes.length) p.state = 'standing';
+        if (p.state === 'standing' && foes.length) {
+          const tgt = foes.length === 1 ? foes[0] : await G.teams[p.team].ctrl.chooseRageTarget(p, foes);
+          log(`${nm(p)} se lanza a morder a ${nm(tgt)}`, 'bad');
+          await block(p, tgt, true, {}); finish(p); render(); return false;
+        }
+        if (mates.length) { const m = mates[d(mates.length) - 1]; log(`${nm(p)} se lanza contra su compañero ${nm(m)}`, 'bad'); await knockDown(m, { by: p }); }
+        else { p.distracted = true; finish(p); render(); return false; }
+      }
     }
   }
   if (has(p, 'Unchannelled Fury') || has(p, 'Animal Savagery')) {
