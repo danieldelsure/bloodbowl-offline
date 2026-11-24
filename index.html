@@ -570,13 +570,10 @@ body.mob .gal{grid-template-columns:repeat(3,1fr);gap:8px}body.mob .gal-card img
 #cartel.chal .ct-b button.primary{background:#1f6fb2;color:#fff}
 #modalBox.chalmenu #modalBtns button.primary{background:#1f6fb2;color:#fff}
 
-/* menú principal: botones pastel por tipo de juego */
-#modalBox.poster #modalBtns button.mb-g{background:#c4e6cf;color:#17402a;box-shadow:inset 7px 0 0 #2e9e4f}
-#modalBox.poster #modalBtns button.mb-r{background:#f8cdc4;color:#5a1b14;box-shadow:inset 7px 0 0 #d52b1e}
-#modalBox.poster #modalBtns button.mb-b{background:#c3dcf2;color:#14385a;box-shadow:inset 7px 0 0 #1f6fb2}
-#modalBox.poster #modalBtns button.mb-y{background:#f8e7a8;color:#4d3b00;box-shadow:inset 7px 0 0 #e0a800}
-#modalBox.poster #modalBtns button[class*="mb-"]{padding-left:24px}
-#modalBox.poster #modalBtns button[class*="mb-"]:hover,#modalBox.poster #modalBtns button[class*="mb-"]:focus-visible{filter:brightness(.95) saturate(1.15)}
+/* menú principal: botones alternando tono oscuro y claro */
+#modalBox.poster #modalBtns button:not(.primary):nth-child(even){background:#e3d4b0;color:var(--ink)}
+#modalBox.poster #modalBtns button:not(.primary):nth-child(odd){background:var(--bone);color:var(--ink)}
+#modalBox.poster #modalBtns button:not(.primary):hover,#modalBox.poster #modalBtns button:not(.primary):focus-visible{filter:brightness(1.12)}
 #modalBox .tm-sec button.lock{cursor:not-allowed;opacity:.5;background:#12141708}
 #modalBox .tm-sec button.lock:hover{border-color:transparent}
 
@@ -5408,7 +5405,7 @@ if (!HEADLESS) (function () {
     d.children[2].onclick = () => d.remove();
     document.body.appendChild(d);
   }
-  const BUILD_ID = 'd7a81af9cf';
+  const BUILD_ID = '4a1e401d5a';
   async function checkUpdate() {   // compara esta versión con la publicada (version.json, siempre desde la red)
     try { const r = await fetch('version.json?chk=' + Date.now(), { cache: 'no-store' }); if (r.ok && (await r.json()).id !== BUILD_ID) offerUpdate(); } catch (e) { }
   }
@@ -5437,9 +5434,6 @@ if (!HEADLESS) (function () {
       if (ms) btn.unshift({ label: `Continuar partida (${ms.desc})`, value: 'cm', primary: true });
       if (sv && sv.round <= svT.rounds) btn.unshift({ label: `Continuar torneo (${svT.name.replace('Torneo de Campeones ', 'TdC ')}, ronda ${sv.round}, ${svT.teams[sv.me].name})`, value: 'cont', primary: true });
       let c = await ask(`<img class="pst-img${(svT || TORNEOS[0]).land ? ' land' : ''}" src="${ASSETS[(svT || TORNEOS[0]).poster]}" alt="Afiche del Torneo de Campeones"><div class="pst-side"><div class="pst-k">BB Chile - El desafío</div><p>Juega contra la IA: revive el Torneo de Campeones III (2025), el II (2024) o el I (2023) con uno de sus equipos, o juega un partido suelto.</p><div id="modalBtns2"></div></div>`, btn, false, 'poster', () => {
-        /* cada tipo de juego con su color pastel */
-        const CL = { learn: 'g', tdcs: 'r', chal: 'b', quick: 'y' }, bs = $('modalBtns').children;
-        btn.forEach((b, k) => { if (CL[b.value]) bs[k].classList.add('mb-' + CL[b.value]); });
       });
       if (c === 'tdcs') { const id = await pickTorneo(); if (!id) continue; c = 'new:' + id; }
       if (c === 'cm') {

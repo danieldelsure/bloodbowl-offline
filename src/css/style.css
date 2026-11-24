@@ -529,12 +529,9 @@ body.mob .gal{grid-template-columns:repeat(3,1fr);gap:8px}body.mob .gal-card img
 #cartel.chal .ct-b button.primary{background:#1f6fb2;color:#fff}
 #modalBox.chalmenu #modalBtns button.primary{background:#1f6fb2;color:#fff}
 
-/* menú principal: botones pastel por tipo de juego */
-#modalBox.poster #modalBtns button.mb-g{background:#c4e6cf;color:#17402a;box-shadow:inset 7px 0 0 #2e9e4f}
-#modalBox.poster #modalBtns button.mb-r{background:#f8cdc4;color:#5a1b14;box-shadow:inset 7px 0 0 #d52b1e}
-#modalBox.poster #modalBtns button.mb-b{background:#c3dcf2;color:#14385a;box-shadow:inset 7px 0 0 #1f6fb2}
-#modalBox.poster #modalBtns button.mb-y{background:#f8e7a8;color:#4d3b00;box-shadow:inset 7px 0 0 #e0a800}
-#modalBox.poster #modalBtns button[class*="mb-"]{padding-left:24px}
-#modalBox.poster #modalBtns button[class*="mb-"]:hover,#modalBox.poster #modalBtns button[class*="mb-"]:focus-visible{filter:brightness(.95) saturate(1.15)}
+/* menú principal: botones alternando tono oscuro y claro */
+#modalBox.poster #modalBtns button:not(.primary):nth-child(even){background:#e3d4b0;color:var(--ink)}
+#modalBox.poster #modalBtns button:not(.primary):nth-child(odd){background:var(--bone);color:var(--ink)}
+#modalBox.poster #modalBtns button:not(.primary):hover,#modalBox.poster #modalBtns button:not(.primary):focus-visible{filter:brightness(1.12)}
 #modalBox .tm-sec button.lock{cursor:not-allowed;opacity:.5;background:#12141708}
 #modalBox .tm-sec button.lock:hover{border-color:transparent}

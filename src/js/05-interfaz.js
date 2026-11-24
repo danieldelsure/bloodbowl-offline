@@ -1392,9 +1392,6 @@ if (!HEADLESS) (function () {
       if (ms) btn.unshift({ label: `Continuar partida (${ms.desc})`, value: 'cm', primary: true });
       if (sv && sv.round <= svT.rounds) btn.unshift({ label: `Continuar torneo (${svT.name.replace('Torneo de Campeones ', 'TdC ')}, ronda ${sv.round}, ${svT.teams[sv.me].name})`, value: 'cont', primary: true });
       let c = await ask(`<img class="pst-img${(svT || TORNEOS[0]).land ? ' land' : ''}" src="${ASSETS[(svT || TORNEOS[0]).poster]}" alt="Afiche del Torneo de Campeones"><div class="pst-side"><div class="pst-k">BB Chile - El desafío</div><p>Juega contra la IA: revive el Torneo de Campeones III (2025), el II (2024) o el I (2023) con uno de sus equipos, o juega un partido suelto.</p><div id="modalBtns2"></div></div>`, btn, false, 'poster', () => {
-        /* cada tipo de juego con su color pastel */
-        const CL = { learn: 'g', tdcs: 'r', chal: 'b', quick: 'y' }, bs = $('modalBtns').children;
-        btn.forEach((b, k) => { if (CL[b.value]) bs[k].classList.add('mb-' + CL[b.value]); });
       });
       if (c === 'tdcs') { const id = await pickTorneo(); if (!id) continue; c = 'new:' + id; }
       if (c === 'cm') {
