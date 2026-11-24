@@ -22,7 +22,7 @@ if (!HEADLESS) (function () {
       $('modalBox').className = (wide ? 'wide ' : '') + (cls || '');
       $('modalBody').innerHTML = html; const bx = $('modalBtns'); bx.innerHTML = '';
       const close = v => { $('modal').hidden = true; res(v); };
-      for (const b of buttons) { const el = document.createElement('button'); el.textContent = b.label; if (b.primary) el.className = 'primary'; el.onclick = () => close(b.value); bx.appendChild(el); }
+      for (const b of buttons) { const el = document.createElement('button'); el.textContent = b.label; if (b.primary) el.className = 'primary'; if (b.soon) { el.disabled = true; el.classList.add('soon'); el.textContent = b.label + ' · Pronto'; } else el.onclick = () => close(b.value); bx.appendChild(el); }
       $('modalBody').querySelectorAll('[data-v]').forEach(el => { el.onclick = () => close(+el.dataset.v); });
       $('modal').hidden = false; if (after) after();
     });
@@ -1376,7 +1376,7 @@ if (!HEADLESS) (function () {
   } catch (e) { }
   /* galería de afiches: elige uno de los torneos (devuelve su id o null) */
   async function pickTorneo() {
-    const cards = TORNEOS.map((t, k) => `<div class="gal-card" data-v="${k}" tabindex="0" role="button" aria-label="${t.name}"><img src="${ASSETS[t.poster]}" alt="Afiche ${t.name}"><b>${t.name}</b><span>${t.date} · ${t.teams.length} equipos · ${t.rounds} rondas</span></div>`).join('');
+    const cards = TORNEOS.map((t, k) => `<div class="gal-card${t.id === 'tdc3' ? '' : ' soon'}"${t.id === 'tdc3' ? ` data-v="${k}" tabindex="0" role="button"` : ' aria-disabled="true"'} aria-label="${t.name}"><img src="${ASSETS[t.poster]}" alt="Afiche ${t.name}"><b>${t.name}</b><span>${t.id === 'tdc3' ? `${t.date} · ${t.teams.length} equipos · ${t.rounds} rondas` : `${t.date} · Pronto`}</span></div>`).join('');
     const v = await ask(`<h2>Torneos de Campeones</h2><p>Elige el torneo que quieres revivir.</p><div class="gal">${cards}</div>`, [{ label: 'Volver', value: -1 }], true, 'galbox', () => {
       $('modalBody').querySelectorAll('.gal-card').forEach(el => el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); } }));
     });
@@ -1386,12 +1386,12 @@ if (!HEADLESS) (function () {
     for (;;) {
       const sv = load(), svT = sv && (TORNEOS.find(t => t.id === sv.tid) || TDC3);
       const ms = loadMatch();
-      const btn = [{ label: 'Aprender a jugar Blood Bowl', value: 'learn', primary: !sv && !ms }, { label: 'Torneos de Campeones', value: 'tdcs' }, { label: 'Desafíos', value: 'chal' }, { label: 'Partido rápido', value: 'quick' }];
+      const btn = [{ label: 'Aprender a jugar Blood Bowl', value: 'learn', primary: !sv && !ms }, { label: 'Torneos de Campeones', value: 'tdcs' }, { label: 'Desafíos', value: 'chal', soon: true }, { label: 'Partido rápido', value: 'quick' }];
       btn.push({ label: 'Cargar archivo de guardado', value: 'imp' }); if (sv || ms) btn.push({ label: 'Descargar guardado', value: 'exp' });
       if (!pwa.standalone && (pwa.bip || pwa.ios)) btn.push({ label: 'Instalar app', value: 'inst' });
       if (ms) btn.unshift({ label: `Continuar partida (${ms.desc})`, value: 'cm', primary: true });
       if (sv && sv.round <= svT.rounds) btn.unshift({ label: `Continuar torneo (${svT.name.replace('Torneo de Campeones ', 'TdC ')}, ronda ${sv.round}, ${svT.teams[sv.me].name})`, value: 'cont', primary: true });
-      let c = await ask(`<img class="pst-img${(svT || TORNEOS[0]).land ? ' land' : ''}" src="${ASSETS[(svT || TORNEOS[0]).poster]}" alt="Afiche del Torneo de Campeones"><div class="pst-side"><div class="pst-k">BB Chile - El desafío</div><p>Juega contra la IA: revive el Torneo de Campeones III (2025), el II (2024) o el I (2023) con uno de sus equipos, o juega un partido suelto.</p><div id="modalBtns2"></div></div>`, btn, false, 'poster', () => {
+      let c = await ask(`<img class="pst-img" src="${ASSETS.poster2026}" alt="Afiche del Torneo de Campeones, 28 de noviembre de 2026"><div class="pst-side"><div class="pst-k">BB Chile - El desafío</div><p>Juega contra la IA: revive el Torneo de Campeones III (2025) con uno de sus equipos, o juega un partido suelto.</p><div id="modalBtns2"></div></div>`, btn, false, 'poster', () => {
       });
       if (c === 'tdcs') { const id = await pickTorneo(); if (!id) continue; c = 'new:' + id; }
       if (c === 'cm') {

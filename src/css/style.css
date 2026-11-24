@@ -535,3 +535,8 @@ body.mob .gal{grid-template-columns:repeat(3,1fr);gap:8px}body.mob .gal-card img
 #modalBox.poster #modalBtns button:not(.primary):hover,#modalBox.poster #modalBtns button:not(.primary):focus-visible{filter:brightness(1.12)}
 #modalBox .tm-sec button.lock{cursor:not-allowed;opacity:.5;background:#12141708}
 #modalBox .tm-sec button.lock:hover{border-color:transparent}
+
+/* Pronto: opciones aún no disponibles */
+#modalBox.poster #modalBtns button.soon,#modalBox.poster #modalBtns button.soon:hover{background:#cfc9bd !important;color:#7d776b !important;cursor:default;filter:none}
+.gal-card.soon{cursor:default;filter:grayscale(1);opacity:.55}
+.gal-card.soon:hover{transform:none;box-shadow:none}
