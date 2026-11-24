@@ -371,26 +371,32 @@
 
   /* desafíos: lecciones de un turno armadas desde DESAFIOS (04-desafios.js) */
   DESAFIOS.forEach(D => LESSONS.push({
-    title: D.title, chal: true, level: D.level, turns: 1, rr: D.rr, races: D.races, intro: D.intro, done: D.done,
+    title: D.title, chal: true, turns: 1, rr: D.rr, races: D.races, intro: D.intro, done: D.done,
     setup(o) {
       if (D.last) G.turn = [8, 7];
       D.pl.forEach(([t, sh, x, y]) => TP(t, sh, x, y));
+      (D.sk || []).forEach(([x, y, sk]) => { const q = allPlayers().find(z => z.loc === 'pitch' && z.x === x && z.y === y); if (q) sk.split(',').forEach(k => { k = k.trim(); const kk = k === 'Side Step' ? 'Sidestep' : k; q.skills.add(kk); if (!q.skList.includes(k)) { q.skList = [...q.skList, k]; q.ex = [...(q.ex || []), k]; } }); });
+      (D.prone || []).forEach(([x, y]) => { const q = allPlayers().find(z => z.loc === 'pitch' && z.x === x && z.y === y); if (q) q.state = 'prone'; });
+      if (D.rr1 != null) { G.teams[1].rerolls = D.rr1; G.teams[1].rrMax = D.rr1; }
       const c = allPlayers().find(q => q.loc === 'pitch' && q.x === D.ball[0] && q.y === D.ball[1]);
       if (c) giveBall(c); else looseBall(D.ball[0], D.ball[1]);
       o.car = D.ball; o.rivals = G.teams[1].players.filter(q => q.loc === 'pitch');
       if (D.tg) o.tg = allPlayers().find(q => q.loc === 'pitch' && q.x === D.tg[0] && q.y === D.tg[1]);
     },
-    hl: o => D.kind === 'td' ? [o.car] : D.kind === 'down' ? [D.tg] : [],
-    turnText: () => ({ td: '<b>Anota en este turno.</b> ', def: '<b>Evita que anoten.</b> ', crowd: `<b>Saca a ${D.need} rivales al público.</b> `, down: '<b>Derriba al jugador marcado.</b> ' })[D.kind] + 'Pista: ' + D.hint,
+    hl: o => D.kind === 'td' || D.kind === 'keep' ? [o.car] : D.kind === 'down' || D.kind === 'out' ? [D.tg] : [],
+    turnText: () => ({ td: '<b>Anota en este turno.</b> ', def: '<b>Evita que anoten.</b> ', crowd: `<b>Saca a ${D.need} rivales al público.</b> `, down: '<b>Derriba al jugador marcado.</b> ', out: '<b>Saca del campo al jugador marcado.</b> ', keep: '<b>Protege al portador.</b> ' })[D.kind] + (D.tip ? 'Pista: ' + (D.tip ? D.hint : '') : ''),
     aiMsg: () => '<b>Juega la IA…</b> A ver si tu defensa aguanta.',
     afterHuman(o) {
       const no = G.turnover ? 'Hubo turnover y el turno terminó.' : 'Se acabó el turno.';
-      if (D.kind === 'td') return G.td === 0 ? 'won' : ['fail', '<b class="ct-bad">No anotaste.</b> ' + no + ' Reintenta con otro plan: ' + D.hint];
-      if (D.kind === 'crowd') { const n = o.rivals.filter(q => q.loc !== 'pitch').length; return n >= D.need ? 'won' : ['fail', `<b class="ct-bad">Sacaste ${n} de ${D.need}.</b> ${no} Reintenta: ${D.hint}`]; }
-      if (D.kind === 'down') return o.tg && (o.tg.loc !== 'pitch' || o.tg.state !== 'standing') ? 'won' : ['fail', '<b class="ct-bad">El jugador sigue en pie.</b> ' + no + ' Reintenta: ' + D.hint];
+      if (D.kind === 'td') return G.td === 0 ? 'won' : ['fail', '<b class="ct-bad">No anotaste.</b> ' + no + ' Reintenta con otro plan.' + (D.tip ? ' Pista: ' + D.hint : '')];
+      if (D.kind === 'crowd') { const n = o.rivals.filter(q => q.loc !== 'pitch').length; return n >= D.need ? 'won' : ['fail', `<b class="ct-bad">Sacaste ${n} de ${D.need}.</b> ${no} Reintenta.${D.tip ? ' Pista: ' + D.hint : ''}`]; }
+      if (D.kind === 'down') return o.tg && (o.tg.loc !== 'pitch' || o.tg.state !== 'standing') ? 'won' : ['fail', '<b class="ct-bad">El jugador sigue en pie.</b> ' + no + ' Reintenta.' + (D.tip ? ' Pista: ' + D.hint : '')];
+      if (D.kind === 'out') return o.tg && o.tg.loc !== 'pitch' ? 'won' : ['fail', '<b class="ct-bad">El jugador sigue en el campo.</b> ' + no + ' Reintenta.' + (D.tip ? ' Pista: ' + D.hint : '')];
+      if (D.kind === 'keep') { if (G.td === 0) return 'won'; if (!G.ball.carrier || G.ball.carrier.team !== 0) return ['fail', '<b class="ct-bad">Perdiste el balón.</b> ' + no + ' Reintenta.' + (D.tip ? ' Pista: ' + D.hint : '')]; return null; }
       return null;
     },
-    afterAI() { return G.td === 1 ? ['fail', '<b class="ct-bad">Anotaron.</b> Reordena tu defensa y reintenta: ' + D.hint] : 'won'; }
+    afterAI() { if (D.kind === 'keep') return G.td === 1 || !G.ball.carrier || G.ball.carrier.team !== 0 ? ['fail', '<b class="ct-bad">Te quitaron el balón.</b> Protege mejor al portador y reintenta.' + (D.tip ? ' Pista: ' + D.hint : '')] : 'won';
+      return G.td === 1 ? ['fail', '<b class="ct-bad">Anotaron.</b> Reordena tu defensa y reintenta.' + (D.tip ? ' Pista: ' + D.hint : '')] : 'won'; }
   }));
   function lessonSteps() { const L = tut.L; return L.steps.map(s => ({ s, ok: !!s.ok(tut.o) })); }
   function tutStatus() {
@@ -532,7 +538,7 @@
   }
   function tutMenu() {
     const done = tutDoneGet(), secs = tutSections();
-    const html = (tutChal ? `<h2>Desafíos</h2><p class="sub" style="margin:0 0 10px">Situaciones de <b>un solo turno</b> con distintas razas: anotar, o evitar que anoten. Tienes pistas en el cartel y puedes reintentar las veces que quieras. Los superados quedan marcados con ✓.</p>` : `<h2>Aprender a jugar</h2><p class="sub" style="margin:0 0 10px">Elige una sección o una lección suelta. Con "Curso completo" las ves todas en orden. Las que ya superaste quedan marcadas con ✓.</p>`) +
+    const html = (tutChal ? `<h2>Desafíos</h2><p class="sub" style="margin:0 0 10px">Situaciones de <b>un solo turno</b> con distintas razas: anotar, o evitar que anoten. Los primeros traen pista en el cartel; puedes reintentar las veces que quieras. Los superados quedan marcados con ✓.</p>` : `<h2>Aprender a jugar</h2><p class="sub" style="margin:0 0 10px">Elige una sección o una lección suelta. Con "Curso completo" las ves todas en orden. Las que ya superaste quedan marcadas con ✓.</p>`) +
       '<div class="tm-grid">' + secs.map((sc, k) => `<div class="tm-sec ${tutChal ? 'chal' : ({ 'Básico': 'lv-g', 'Intermedio': 'lv-y', 'Avanzado': 'lv-r' })[sc.name] || ''}"><div class="tm-hd"><b>${sc.name}</b><span>${sc.sub}</span><button data-v="${1000 + k}">Ver sección</button></div>` +
         sc.ids.map(i => tutChal && !chalOpen(i) ? `<button class="tm-l lock" disabled title="Supera el desafío anterior para abrirlo">🔒 ${LESSONS[i].title}${LESSONS[i].level ? `<i class="lvb ${({ 'Fácil': 'lv-g', 'Medio': 'lv-y', 'Difícil': 'lv-r' })[LESSONS[i].level]}">${LESSONS[i].level}</i>` : ''}</button>` : `<button class="tm-l${done.includes(LESSONS[i].title) ? ' ok' : ''}" data-v="${i}">${done.includes(LESSONS[i].title) ? '✓ ' : ''}${LESSONS[i].title}${LESSONS[i].level ? `<i class="lvb ${({ 'Fácil': 'lv-g', 'Medio': 'lv-y', 'Difícil': 'lv-r' })[LESSONS[i].level]}">${LESSONS[i].level}</i>` : ''}</button>`).join('') + '</div>').join('') + '</div>'
     const html2 = html + '<p class="sub" style="margin:10px 0 0">Para ligas y partidas competitivas contra otras personas: <a href="https://fumbbl.com" target="_blank" rel="noopener"><b>fumbbl.com</b></a></p>';

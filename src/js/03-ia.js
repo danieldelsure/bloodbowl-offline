@@ -63,7 +63,7 @@ class AI {
       await this.tryPunt(); if (this.over()) return;
       const c = G.ball.carrier;
       if (c && c.team === this.t) {
-        if (this.passPick(true).bs < 0.35) { await this.prepPass(c); if (this.over()) return; }
+        if (this.passPick(true).bs < 0.7) { await this.prepPass(c); if (this.over()) return; }
         if (G.ball.carrier === c && await this.tryPassScore(true)) return;
       }
       await this.doBlocks(2); if (this.over()) return;

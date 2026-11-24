@@ -1118,9 +1118,9 @@ async function throwTeammate(p, m, tx, ty) {
   log(`${nm(p)} levanta a ${nm(m)} para lanzarlo`, 't' + p.team);
   let res = null;
   if (has(p, 'Always Hungry')) {
-    const r = d6();
+    const r = d6(); await fxD6(p, 'Always Hungry', 2, r, r > 1);
     if (r === 1) {
-      const r2 = d6();
+      const r2 = d6(); await fxD6(p, 'Always Hungry (¿te lo comes?)', 2, r2, r2 > 1);
       if (r2 === 1) {
         log(`Always Hungry (1 y 1): ¡${nm(p)} se come a ${nm(m)}!`, 'bad');
         const sx = m.x, sy = m.y; removeFromPitch(m, 'cas'); G.turnover = true;
@@ -1135,8 +1135,10 @@ async function throwTeammate(p, m, tx, ty) {
   const txt = { ok: 'lanzamiento soberbio', bad: 'lanzamiento pobre', fumble: 'se le cae' };
   if (!res) {
     let r = d6(); res = ev(r);
+    const need = Math.min(6, Math.max(2, p.pa + mod));
+    await fxD6(p, 'Lanzar compañero', need, r, res === 'ok');
     log(`${nm(p)} lanza a ${nm(m)} (${Math.min(6, Math.max(2, p.pa + mod))}+): saca ${r}, ${txt[res]}`, 't' + p.team);
-    if (res !== 'ok' && await teamReroll(p, 'Lanzar compañero')) { r = d6(); res = ev(r); log(`Repite y saca ${r}, ${txt[res]}`, 't' + p.team); }
+    if (res !== 'ok' && await teamReroll(p, 'Lanzar compañero')) { r = d6(); res = ev(r); await fxD6(p, 'Lanzar compañero (repite)', need, r, res === 'ok'); log(`Repite y saca ${r}, ${txt[res]}`, 't' + p.team); }
   }
   const kick = has(p, 'Kick Team-mate') && !has(p, 'Throw Team-mate');
   const auto = m.state !== 'standing' || m.distracted;
