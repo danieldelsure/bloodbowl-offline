@@ -1386,7 +1386,7 @@ if (!HEADLESS) (function () {
     for (;;) {
       const sv = load(), svT = sv && (TORNEOS.find(t => t.id === sv.tid) || TDC3);
       const ms = loadMatch();
-      const btn = [{ label: 'Aprender a jugar Blood Bowl', value: 'learn', primary: !sv && !ms }, { label: 'Torneos de Campeones', value: 'tdcs' }, { label: 'Desafíos', value: 'chal', soon: true }, { label: 'Partido rápido', value: 'quick' }];
+      const btn = [{ label: 'Aprender a jugar Blood Bowl', value: 'learn', primary: !sv && !ms }, { label: 'Torneos de Campeones', value: 'tdcs' }, { label: 'Desafíos', value: 'chal' }, { label: 'Partido rápido', value: 'quick' }];
       btn.push({ label: 'Cargar archivo de guardado', value: 'imp' }); if (sv || ms) btn.push({ label: 'Descargar guardado', value: 'exp' });
       if (!pwa.standalone && (pwa.bip || pwa.ios)) btn.push({ label: 'Instalar app', value: 'inst' });
       if (ms) btn.unshift({ label: `Continuar partida (${ms.desc})`, value: 'cm', primary: true });

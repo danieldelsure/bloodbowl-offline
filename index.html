@@ -581,6 +581,7 @@ body.mob .gal{grid-template-columns:repeat(3,1fr);gap:8px}body.mob .gal-card img
 #modalBox.poster #modalBtns button.soon,#modalBox.poster #modalBtns button.soon:hover{background:#cfc9bd !important;color:#7d776b !important;cursor:default;filter:none}
 .gal-card.soon{cursor:default;filter:grayscale(1);opacity:.55}
 .gal-card.soon:hover{transform:none;box-shadow:none}
+.tm-l.lock .soonb{background:#8a8478;color:#fff}
 
 </style>
 </head>
@@ -5317,6 +5318,7 @@ if (!HEADLESS) (function () {
     { name: 'Intermedio', sub: 'Esquivar, pasar, surf y formaciones', t: ['Esquivar (dodge)', 'Skills clave', 'Elegir el bloqueo seguro', 'Seguir o no seguir', 'Pase', 'Surf: al público', 'Liberar al portador con un Blitz', 'La línea de scrimmage', 'Formaciones de ataque', 'Maniobras de ataque', 'Principios de defensa', 'Formaciones de defensa'] },
     { name: 'Avanzado', sub: 'Cadenas, surf de equipo, pases y defensa', t: ['Surf con dos jugadores', 'Empujón en cadena (chain push)', 'Empujón en cadena y surf', 'Liberar al receptor y pasar', 'Avanzar con caja (cage)', 'Cage: abrir hueco y rellenar', 'Cage: flanco atacado', 'Defender con pantalla (screen)', 'Último turno: dos amenazas', 'Finta larga'] }
   ];
+  const CHAL_SOON = true; /* desafíos visibles pero aún no jugables: poner en false para abrirlos */
   let tutChal = false;
   const chalIds = () => LESSONS.map((l, i) => l.chal ? i : -1).filter(i => i >= 0);
   /* un desafío se abre al superar el anterior (el primero siempre está abierto) */
@@ -5331,11 +5333,11 @@ if (!HEADLESS) (function () {
   }
   function tutMenu() {
     const done = tutDoneGet(), secs = tutSections();
-    const html = (tutChal ? `<h2>Desafíos</h2><p class="sub" style="margin:0 0 10px">Situaciones de <b>un solo turno</b> con distintas razas: anotar, o evitar que anoten. Los primeros traen pista en el cartel; puedes reintentar las veces que quieras. Los superados quedan marcados con ✓.</p>` : `<h2>Aprender a jugar</h2><p class="sub" style="margin:0 0 10px">Elige una sección o una lección suelta. Con "Curso completo" las ves todas en orden. Las que ya superaste quedan marcadas con ✓.</p>`) +
-      '<div class="tm-grid">' + secs.map((sc, k) => `<div class="tm-sec ${tutChal ? 'chal' : ({ 'Básico': 'lv-g', 'Intermedio': 'lv-y', 'Avanzado': 'lv-r' })[sc.name] || ''}"><div class="tm-hd"><b>${sc.name}</b><span>${sc.sub}</span><button data-v="${1000 + k}">Ver sección</button></div>` +
-        sc.ids.map(i => tutChal && !chalOpen(i) ? `<button class="tm-l lock" disabled title="Supera el desafío anterior para abrirlo">🔒 ${LESSONS[i].title}${LESSONS[i].level ? `<i class="lvb ${({ 'Fácil': 'lv-g', 'Medio': 'lv-y', 'Difícil': 'lv-r' })[LESSONS[i].level]}">${LESSONS[i].level}</i>` : ''}</button>` : `<button class="tm-l${done.includes(LESSONS[i].title) ? ' ok' : ''}" data-v="${i}">${done.includes(LESSONS[i].title) ? '✓ ' : ''}${LESSONS[i].title}${LESSONS[i].level ? `<i class="lvb ${({ 'Fácil': 'lv-g', 'Medio': 'lv-y', 'Difícil': 'lv-r' })[LESSONS[i].level]}">${LESSONS[i].level}</i>` : ''}</button>`).join('') + '</div>').join('') + '</div>'
+    const html = (tutChal ? `<h2>Desafíos</h2><p class="sub" style="margin:0 0 10px">Situaciones de <b>un solo turno</b> con distintas razas: anotar, o evitar que anoten. <b>Se abren pronto.</b> Los primeros traen pista en el cartel; puedes reintentar las veces que quieras. Los superados quedan marcados con ✓.</p>` : `<h2>Aprender a jugar</h2><p class="sub" style="margin:0 0 10px">Elige una sección o una lección suelta. Con "Curso completo" las ves todas en orden. Las que ya superaste quedan marcadas con ✓.</p>`) +
+      '<div class="tm-grid">' + secs.map((sc, k) => `<div class="tm-sec ${tutChal ? 'chal' : ({ 'Básico': 'lv-g', 'Intermedio': 'lv-y', 'Avanzado': 'lv-r' })[sc.name] || ''}"><div class="tm-hd"><b>${sc.name}</b><span>${sc.sub}</span><button ${tutChal && CHAL_SOON ? 'disabled style="opacity:.45;cursor:default"' : `data-v="${1000 + k}"`}>${tutChal && CHAL_SOON ? 'Pronto' : 'Ver sección'}</button></div>` +
+        sc.ids.map(i => tutChal && CHAL_SOON ? `<button class="tm-l lock" disabled>${LESSONS[i].title}<i class="lvb soonb">Pronto</i></button>` : tutChal && !chalOpen(i) ? `<button class="tm-l lock" disabled title="Supera el desafío anterior para abrirlo">🔒 ${LESSONS[i].title}${LESSONS[i].level ? `<i class="lvb ${({ 'Fácil': 'lv-g', 'Medio': 'lv-y', 'Difícil': 'lv-r' })[LESSONS[i].level]}">${LESSONS[i].level}</i>` : ''}</button>` : `<button class="tm-l${done.includes(LESSONS[i].title) ? ' ok' : ''}" data-v="${i}">${done.includes(LESSONS[i].title) ? '✓ ' : ''}${LESSONS[i].title}${LESSONS[i].level ? `<i class="lvb ${({ 'Fácil': 'lv-g', 'Medio': 'lv-y', 'Difícil': 'lv-r' })[LESSONS[i].level]}">${LESSONS[i].level}</i>` : ''}</button>`).join('') + '</div>').join('') + '</div>'
     const html2 = html + '<p class="sub" style="margin:10px 0 0">Para ligas y partidas competitivas contra otras personas: <a href="https://fumbbl.com" target="_blank" rel="noopener"><b>fumbbl.com</b></a></p>';
-    return ask(html2, [{ label: tutChal ? 'Todos en orden' : 'Curso completo', value: 2000, primary: true }, ...(tutChal ? [] : [{ label: 'Partido de medio tiempo', value: 3000 }]), { label: 'Volver al menú', value: 4000 }], true, 'teams' + (tutChal ? ' chalmenu' : ''));
+    return ask(html2, [{ label: tutChal ? 'Todos en orden' : 'Curso completo', value: 2000, primary: true, soon: tutChal && CHAL_SOON }, ...(tutChal ? [] : [{ label: 'Partido de medio tiempo', value: 3000 }]), { label: 'Volver al menú', value: 4000 }], true, 'teams' + (tutChal ? ' chalmenu' : ''));
   }
   const FUMBBL_P = '<p>Este juego sirve para aprender y practicar contra la IA. Si quieres <b>ligas, torneos y partidas competitivas</b> contra otras personas, te recomiendo <b>fumbbl.com</b>, la comunidad online gratuita de Blood Bowl.</p>';
   async function tutFumbbl(titulo) {
@@ -5410,7 +5412,7 @@ if (!HEADLESS) (function () {
     d.children[2].onclick = () => d.remove();
     document.body.appendChild(d);
   }
-  const BUILD_ID = '703bfee7cd';
+  const BUILD_ID = 'e33a8bee86';
   async function checkUpdate() {   // compara esta versión con la publicada (version.json, siempre desde la red)
     try { const r = await fetch('version.json?chk=' + Date.now(), { cache: 'no-store' }); if (r.ok && (await r.json()).id !== BUILD_ID) offerUpdate(); } catch (e) { }
   }
@@ -5433,7 +5435,7 @@ if (!HEADLESS) (function () {
     for (;;) {
       const sv = load(), svT = sv && (TORNEOS.find(t => t.id === sv.tid) || TDC3);
       const ms = loadMatch();
-      const btn = [{ label: 'Aprender a jugar Blood Bowl', value: 'learn', primary: !sv && !ms }, { label: 'Torneos de Campeones', value: 'tdcs' }, { label: 'Desafíos', value: 'chal', soon: true }, { label: 'Partido rápido', value: 'quick' }];
+      const btn = [{ label: 'Aprender a jugar Blood Bowl', value: 'learn', primary: !sv && !ms }, { label: 'Torneos de Campeones', value: 'tdcs' }, { label: 'Desafíos', value: 'chal' }, { label: 'Partido rápido', value: 'quick' }];
       btn.push({ label: 'Cargar archivo de guardado', value: 'imp' }); if (sv || ms) btn.push({ label: 'Descargar guardado', value: 'exp' });
       if (!pwa.standalone && (pwa.bip || pwa.ios)) btn.push({ label: 'Instalar app', value: 'inst' });
       if (ms) btn.unshift({ label: `Continuar partida (${ms.desc})`, value: 'cm', primary: true });

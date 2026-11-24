@@ -540,3 +540,4 @@ body.mob .gal{grid-template-columns:repeat(3,1fr);gap:8px}body.mob .gal-card img
 #modalBox.poster #modalBtns button.soon,#modalBox.poster #modalBtns button.soon:hover{background:#cfc9bd !important;color:#7d776b !important;cursor:default;filter:none}
 .gal-card.soon{cursor:default;filter:grayscale(1);opacity:.55}
 .gal-card.soon:hover{transform:none;box-shadow:none}
+.tm-l.lock .soonb{background:#8a8478;color:#fff}
