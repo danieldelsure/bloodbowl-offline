@@ -369,6 +369,29 @@
     { title: 'Formaciones de defensa', info: INFO_DEF, intro: 'Aquí ves las defensas que ofrece el juego, <b>armadas en la cancha</b>: toca una para verla. Cuando <b>pateas</b>, la formación decide cuánto campo cedes y qué tan difícil es llegar al portador. ' + FORM_RULES, steps: [], setup() {}, done: '' }
   ];
 
+  /* desafíos: lecciones de un turno armadas desde DESAFIOS (04-desafios.js) */
+  DESAFIOS.forEach(D => LESSONS.push({
+    title: D.title, chal: true, level: D.level, turns: 1, rr: D.rr, races: D.races, intro: D.intro, done: D.done,
+    setup(o) {
+      if (D.last) G.turn = [8, 7];
+      D.pl.forEach(([t, sh, x, y]) => TP(t, sh, x, y));
+      const c = allPlayers().find(q => q.loc === 'pitch' && q.x === D.ball[0] && q.y === D.ball[1]);
+      if (c) giveBall(c); else looseBall(D.ball[0], D.ball[1]);
+      o.car = D.ball; o.rivals = G.teams[1].players.filter(q => q.loc === 'pitch');
+      if (D.tg) o.tg = allPlayers().find(q => q.loc === 'pitch' && q.x === D.tg[0] && q.y === D.tg[1]);
+    },
+    hl: o => D.kind === 'td' ? [o.car] : D.kind === 'down' ? [D.tg] : [],
+    turnText: () => ({ td: '<b>Anota en este turno.</b> ', def: '<b>Evita que anoten.</b> ', crowd: `<b>Saca a ${D.need} rivales al público.</b> `, down: '<b>Derriba al jugador marcado.</b> ' })[D.kind] + 'Pista: ' + D.hint,
+    aiMsg: () => '<b>Juega la IA…</b> A ver si tu defensa aguanta.',
+    afterHuman(o) {
+      const no = G.turnover ? 'Hubo turnover y el turno terminó.' : 'Se acabó el turno.';
+      if (D.kind === 'td') return G.td === 0 ? 'won' : ['fail', '<b class="ct-bad">No anotaste.</b> ' + no + ' Reintenta con otro plan: ' + D.hint];
+      if (D.kind === 'crowd') { const n = o.rivals.filter(q => q.loc !== 'pitch').length; return n >= D.need ? 'won' : ['fail', `<b class="ct-bad">Sacaste ${n} de ${D.need}.</b> ${no} Reintenta: ${D.hint}`]; }
+      if (D.kind === 'down') return o.tg && (o.tg.loc !== 'pitch' || o.tg.state !== 'standing') ? 'won' : ['fail', '<b class="ct-bad">El jugador sigue en pie.</b> ' + no + ' Reintenta: ' + D.hint];
+      return null;
+    },
+    afterAI() { return G.td === 1 ? ['fail', '<b class="ct-bad">Anotaron.</b> Reordena tu defensa y reintenta: ' + D.hint] : 'won'; }
+  }));
   function lessonSteps() { const L = tut.L; return L.steps.map(s => ({ s, ok: !!s.ok(tut.o) })); }
   function tutStatus() {
     if (!tut.on || tut.state !== 'play' || ui.busy) return;
@@ -408,11 +431,11 @@
       tutDoneMark(tut.L.title);
       (async () => {
         if (G.td != null) await fxBanner('say', null, { title: '¡Touchdown!', text: G.teams[G.td].name + ' anota', c: G.teams[G.td].color, ms: 1300 });
-        await fxBanner('say', null, { title: '¡Lección superada!', text: tut.L.title, c: '#ffd23f', ms: 1500 });
+        await fxBanner('say', null, { title: tut.L.chal ? '¡Desafío superado!' : '¡Lección superada!', text: tut.L.title, c: '#ffd23f', ms: 1500 });
       })();
       $('ctStep').innerHTML = `<b class="ct-ok">${G.turnover ? 'Hubo turnover, pero ya viste cómo funciona.' : '¡Muy bien!'}</b> ${typeof tut.L.done === 'function' ? tut.L.done(tut.o) : tut.L.done}`;
       $('ctNext').hidden = false; $('ctRetry').textContent = 'Repetir';
-      msg('<b>Lección completada.</b> Aprieta "Siguiente" en el cartel.');
+      msg(tut.L.chal ? '<b>Desafío superado.</b> Aprieta "Siguiente" en el cartel.' : '<b>Lección completada.</b> Aprieta "Siguiente" en el cartel.');
     } else if (r === 'fail') {
       $('ctStep').innerHTML = txt; $('ctNext').hidden = true; $('ctRetry').textContent = 'Reintentar';
       msg('<b>Lección no superada.</b> Aprieta "Reintentar" en el cartel.');
@@ -464,7 +487,7 @@
   function tutTipHide() { const c = $('cartel'); c.hidden = true; c.classList.remove('tip'); }
   function tutSetup() {
     const L = tut.L;
-    newGame('human', 'orc');
+    newGame(L.races ? L.races[0] : 'human', L.races ? L.races[1] : 'orc');
     G.teams[0].ctrl = new Human(0); G.teams[1].ctrl = new AI2(1);
     G.teams.forEach(t => { t.rerolls = L.rr || 0; t.rrMax = L.rr || 0; t.ff = 3; });
     G.phase = 'turn'; G.active = 0; G.turn = [1, 0]; G.half = 1; G.halfStart = false; G.first = 0; G.kicker = 1;
@@ -480,8 +503,9 @@
   }
   function tutCartel() {
     const L = tut.L;
-    $('ctK').textContent = `${tut.secName ? tut.secName + ' · ' : ''}Lección ${(tut.pos || 0) + 1} de ${(tut.list || LESSONS).length}`;
+    $('ctK').textContent = `${tut.secName ? tut.secName + ' · ' : ''}${L.chal ? 'Desafío' : 'Lección'} ${(tut.pos || 0) + 1} de ${(tut.list || LESSONS).length}${L.level ? ' · ' + L.level : ''}`;
     if (!document.body.classList.contains('mob')) $('cartel').classList.remove('xmin');
+    $('cartel').classList.toggle('chal', !!L.chal);
     $('ctT').textContent = L.title; $('ctX').innerHTML = typeof L.intro === 'function' ? L.intro() : L.intro;
   }
   function runLesson(i) {
@@ -494,20 +518,25 @@
     { name: 'Intermedio', sub: 'Esquivar, pasar, surf y formaciones', t: ['Esquivar (dodge)', 'Skills clave', 'Elegir el bloqueo seguro', 'Seguir o no seguir', 'Pase', 'Surf: al público', 'Liberar al portador con un Blitz', 'La línea de scrimmage', 'Formaciones de ataque', 'Maniobras de ataque', 'Principios de defensa', 'Formaciones de defensa'] },
     { name: 'Avanzado', sub: 'Cadenas, surf de equipo, pases y defensa', t: ['Surf con dos jugadores', 'Empujón en cadena (chain push)', 'Empujón en cadena y surf', 'Liberar al receptor y pasar', 'Avanzar con caja (cage)', 'Cage: abrir hueco y rellenar', 'Cage: flanco atacado', 'Defender con pantalla (screen)', 'Último turno: dos amenazas', 'Finta larga'] }
   ];
+  let tutChal = false;
+  const chalIds = () => LESSONS.map((l, i) => l.chal ? i : -1).filter(i => i >= 0);
+  /* un desafío se abre al superar el anterior (el primero siempre está abierto) */
+  const chalOpen = i => { const ids = chalIds(), k = ids.indexOf(i), done = tutDoneGet(); return k <= 0 || done.includes(LESSONS[ids[k - 1]].title); };
   function tutSections() {
+    if (tutChal) { const n = chalIds().filter(i => tutDoneGet().includes(LESSONS[i].title)).length; return [{ name: 'Desafíos', sub: `${n} de ${chalIds().length} superados · se abren de a uno`, ids: chalIds() }]; }
     const used = new Set(), out = SEC_DEF.map(sc => ({ name: sc.name, sub: sc.sub, ids: sc.t.map(t => LESSONS.findIndex(l => l.title === t)).filter(i => i >= 0) }));
     out.forEach(sc => sc.ids.forEach(i => used.add(i)));
-    const rest = LESSONS.map((l, i) => i).filter(i => !used.has(i));
+    const rest = LESSONS.map((l, i) => i).filter(i => !used.has(i) && !LESSONS[i].chal);
     if (rest.length) out.push({ name: 'Otras lecciones', sub: '', ids: rest });
     return out;
   }
   function tutMenu() {
     const done = tutDoneGet(), secs = tutSections();
-    const html = `<h2>Aprender a jugar</h2><p class="sub" style="margin:0 0 10px">Elige una sección o una lección suelta. Con "Curso completo" las ves todas en orden. Las que ya superaste quedan marcadas con ✓.</p>` +
-      '<div class="tm-grid">' + secs.map((sc, k) => `<div class="tm-sec"><div class="tm-hd"><b>${sc.name}</b><span>${sc.sub}</span><button data-v="${1000 + k}">Ver sección</button></div>` +
-        sc.ids.map(i => `<button class="tm-l${done.includes(LESSONS[i].title) ? ' ok' : ''}" data-v="${i}">${done.includes(LESSONS[i].title) ? '✓ ' : ''}${LESSONS[i].title}</button>`).join('') + '</div>').join('') + '</div>'
+    const html = (tutChal ? `<h2>Desafíos</h2><p class="sub" style="margin:0 0 10px">Situaciones de <b>un solo turno</b> con distintas razas: anotar, o evitar que anoten. Tienes pistas en el cartel y puedes reintentar las veces que quieras. Los superados quedan marcados con ✓.</p>` : `<h2>Aprender a jugar</h2><p class="sub" style="margin:0 0 10px">Elige una sección o una lección suelta. Con "Curso completo" las ves todas en orden. Las que ya superaste quedan marcadas con ✓.</p>`) +
+      '<div class="tm-grid">' + secs.map((sc, k) => `<div class="tm-sec ${tutChal ? 'chal' : ({ 'Básico': 'lv-g', 'Intermedio': 'lv-y', 'Avanzado': 'lv-r' })[sc.name] || ''}"><div class="tm-hd"><b>${sc.name}</b><span>${sc.sub}</span><button data-v="${1000 + k}">Ver sección</button></div>` +
+        sc.ids.map(i => tutChal && !chalOpen(i) ? `<button class="tm-l lock" disabled title="Supera el desafío anterior para abrirlo">🔒 ${LESSONS[i].title}${LESSONS[i].level ? `<i class="lvb ${({ 'Fácil': 'lv-g', 'Medio': 'lv-y', 'Difícil': 'lv-r' })[LESSONS[i].level]}">${LESSONS[i].level}</i>` : ''}</button>` : `<button class="tm-l${done.includes(LESSONS[i].title) ? ' ok' : ''}" data-v="${i}">${done.includes(LESSONS[i].title) ? '✓ ' : ''}${LESSONS[i].title}${LESSONS[i].level ? `<i class="lvb ${({ 'Fácil': 'lv-g', 'Medio': 'lv-y', 'Difícil': 'lv-r' })[LESSONS[i].level]}">${LESSONS[i].level}</i>` : ''}</button>`).join('') + '</div>').join('') + '</div>'
     const html2 = html + '<p class="sub" style="margin:10px 0 0">Para ligas y partidas competitivas contra otras personas: <a href="https://fumbbl.com" target="_blank" rel="noopener"><b>fumbbl.com</b></a></p>';
-    return ask(html2, [{ label: 'Curso completo', value: 2000, primary: true }, { label: 'Partido de medio tiempo', value: 3000 }, { label: 'Volver al menú', value: 4000 }], true, 'teams');
+    return ask(html2, [{ label: tutChal ? 'Todos en orden' : 'Curso completo', value: 2000, primary: true }, ...(tutChal ? [] : [{ label: 'Partido de medio tiempo', value: 3000 }]), { label: 'Volver al menú', value: 4000 }], true, 'teams' + (tutChal ? ' chalmenu' : ''));
   }
   const FUMBBL_P = '<p>Este juego sirve para aprender y practicar contra la IA. Si quieres <b>ligas, torneos y partidas competitivas</b> contra otras personas, te recomiendo <b>fumbbl.com</b>, la comunidad online gratuita de Blood Bowl.</p>';
   async function tutFumbbl(titulo) {
@@ -515,12 +544,14 @@
     const r = await ask(`<h2>${titulo || '¿Quieres jugar en serio?'}</h2>${FUMBBL_P}`, [{ label: 'Abrir fumbbl.com', value: 1, primary: true }, { label: 'Seguir aquí', value: 0 }]);
     if (r) window.open('https://fumbbl.com', '_blank', 'noopener');
   }
-  async function tutorialCourse() {
+  async function tutorialCourse(only) {
+    tutChal = only === 'chal';
     curMode = 'tutorial'; tut.on = true; hist = []; $('ctNext').textContent = 'Siguiente'; $('cartel').classList.remove('tip');
     document.body.classList.add('tut'); $('cartel').hidden = false;
     clearInterval(tut.timer); tut.timer = setInterval(tutStatus, 250);
     $('ctNext').onclick = () => { const r = tut.res; tut.res = null; if (r) r('next'); };
     $('ctRetry').onclick = () => { if (ui.busy || tut.aiRun) return; tutSetup(); };
+    $('ctSkip').hidden = tutChal;
     $('ctSkip').onclick = () => { if (tut.aiRun) return; const r = tut.res; tut.res = null; if (r) r('next'); };
     $('ctExit').onclick = () => { if (tut.aiRun) return; const r = tut.res; tut.res = null; if (r) r('exit'); };
     $('ctStep').onclick = e => { const b = e.target.closest('button[data-f]'); if (b && tut.L && tut.L.info) { const it = tut.L.info.items.find(x => x.k === b.dataset.f); if (it) { tut.fKey = it.k; tut.fShown = null; it.show(); if (!document.body.classList.contains('mob')) $('cartel').classList.add('xmin'); } } };
@@ -541,13 +572,14 @@
       $('cartel').hidden = false; clearInterval(tut.timer); tut.timer = setInterval(tutStatus, 250);
       let pos = 0, ended = false;
       while (pos < list.length) {
+        if (tutChal && !chalOpen(list[pos])) { await ask('<h2>Desafío bloqueado</h2><p>Supera el desafío anterior para abrir el siguiente.</p>', [{ label: 'Volver a los desafíos', value: 1, primary: true }]); break; }
         tut.list = list; tut.pos = pos; tut.secName = name;
         const r = await runLesson(list[pos]);
         if (tut.L.info && r === 'next') tutDoneMark(tut.L.title);
         if (r === 'exit') break;
         pos++; if (pos >= list.length) ended = true;
       }
-      if (ended && v === 2000) { full = true; break; }
+      if (ended && v === 2000) { full = !tutChal; if (tutChal) out = 'exit'; break; }
       if (ended && (v === 1001 || v === 1002)) await tutFumbbl(v === 1001 ? 'Nivel intermedio completo' : '¡Terminaste el avanzado!');
     }
     tut.list = null; tut.secName = '';
@@ -563,6 +595,6 @@
     }
     clearInterval(tut.timer); tut.on = false; ui.tutHl = null;
     ui.phase = 'idle'; ui.sel = null; ui.tutBands = false; refresh();
-    document.body.classList.remove('tut'); $('cartel').hidden = true;
+    document.body.classList.remove('tut'); $('cartel').hidden = true; $('cartel').classList.remove('chal');
     return out;
   }

@@ -499,3 +499,42 @@ body.mob #cartel .fch button{padding:4px 8px!important;font-size:12px!important;
 /* afiche horizontal (Torneo I, 2023) */
 .pst-img.land{height:auto;width:min(66vw,820px);max-height:88vh;object-fit:contain;align-self:center;background:var(--ink)}
 body.mob .pst-img.land{width:min(56vw,640px);max-height:92vh}
+
+/* galería de torneos */
+#modalBox.galbox{max-width:1040px}
+.gal{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:12px 0 4px}
+.gal-card{cursor:pointer;display:flex;flex-direction:column;gap:4px;border:3px solid var(--ink);background:var(--ink);padding:0 0 10px;transition:transform .15s,box-shadow .15s}
+.gal-card img{width:100%;height:340px;object-fit:cover;object-position:top center;display:block}
+.gal-card b{font:800 20px/1.1 var(--disp);text-transform:uppercase;color:var(--bone);padding:8px 10px 0}
+.gal-card span{font-size:13px;color:#efe3c6;padding:0 10px}
+.gal-card:hover,.gal-card:focus-visible{transform:translateY(-4px);box-shadow:6px 6px 0 var(--acc);outline:none}
+@media (max-width:760px){.gal{grid-template-columns:1fr}.gal-card{flex-direction:row;flex-wrap:wrap;align-items:center}.gal-card img{width:96px;height:120px}.gal-card b{flex:1;padding:0 10px}.gal-card span{width:100%;padding:6px 10px 0}}
+body.mob .gal{grid-template-columns:repeat(3,1fr);gap:8px}body.mob .gal-card img{width:100%;height:150px}body.mob .gal-card{flex-direction:column}body.mob .gal-card b{font-size:14px}body.mob .gal-card span{font-size:11px}
+
+/* colores de dificultad (Aprender) y de Desafíos */
+.tm-sec{--lv:var(--ink)}
+.tm-sec.lv-g{--lv:#2e9e4f}.tm-sec.lv-y{--lv:#e0a800}.tm-sec.lv-r{--lv:#d03a2f}.tm-sec.chal{--lv:#1f6fb2}
+.tm-sec[class*="lv-"],.tm-sec.chal{border-color:var(--lv);border-top-width:8px}
+.tm-sec[class*="lv-"] .tm-hd b,.tm-sec.chal .tm-hd b{color:var(--lv)}
+.tm-sec.lv-y .tm-hd b{color:#a87e00}
+#modalBox .tm-sec[class*="lv-"] .tm-hd button,#modalBox .tm-sec.chal .tm-hd button{background:var(--lv);color:#fff}
+#modalBox .tm-sec.lv-y .tm-hd button{color:#121417}
+#modalBox .tm-sec[class*="lv-"] button:hover,#modalBox .tm-sec.chal button:hover{border-color:var(--lv)}
+.lvb{font:800 11px/1 var(--body);font-style:normal;text-transform:uppercase;letter-spacing:.04em;padding:2px 6px;margin-left:8px;color:#fff;vertical-align:1px}
+.lvb.lv-g{background:#2e9e4f}.lvb.lv-y{background:#e0a800;color:#121417}.lvb.lv-r{background:#d03a2f}
+#modalBox.chalmenu h2{color:#1f6fb2}
+#cartel.chal{border-left-color:#1f6fb2}
+#cartel.chal .ct-top{color:#1f6fb2}
+#cartel.chal #ctStep{background:#1f6fb21a;border-color:#1f6fb266}
+#cartel.chal .ct-b button.primary{background:#1f6fb2;color:#fff}
+#modalBox.chalmenu #modalBtns button.primary{background:#1f6fb2;color:#fff}
+
+/* menú principal: botones pastel por tipo de juego */
+#modalBox.poster #modalBtns button.mb-g{background:#c4e6cf;color:#17402a;box-shadow:inset 7px 0 0 #2e9e4f}
+#modalBox.poster #modalBtns button.mb-r{background:#f8cdc4;color:#5a1b14;box-shadow:inset 7px 0 0 #d52b1e}
+#modalBox.poster #modalBtns button.mb-b{background:#c3dcf2;color:#14385a;box-shadow:inset 7px 0 0 #1f6fb2}
+#modalBox.poster #modalBtns button.mb-y{background:#f8e7a8;color:#4d3b00;box-shadow:inset 7px 0 0 #e0a800}
+#modalBox.poster #modalBtns button[class*="mb-"]{padding-left:24px}
+#modalBox.poster #modalBtns button[class*="mb-"]:hover,#modalBox.poster #modalBtns button[class*="mb-"]:focus-visible{filter:brightness(.95) saturate(1.15)}
+#modalBox .tm-sec button.lock{cursor:not-allowed;opacity:.5;background:#12141708}
+#modalBox .tm-sec button.lock:hover{border-color:transparent}

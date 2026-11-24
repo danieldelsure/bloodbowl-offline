@@ -50,7 +50,11 @@ class AI {
   lastStand() {
     if (G.turn[this.t] < TURNS) return false;
     const c = G.ball.carrier;
-    if (c && c.team === this.t) { const n = this.scoreNode(c); if (n && n.prob >= 0.2) return false; }
+    if (c && c.team === this.t) {
+      const n = this.scoreNode(c); if (n && n.prob >= 0.2) return false;
+      /* en el último turno pegar no suma puntos: si queda aunque sea una chance de anotar (pase o carrera), se juega por ella y lo seguro va primero */
+      if ((n && n.prob > 0) || this.passPick(true).bs > 0) return false;
+    }
     return true;
   }
   async finalBash() {
@@ -488,12 +492,12 @@ class AI {
       if (cheb(e.x, e.y, c.x, c.y) === 1 || recv.some(q => cheb(e.x, e.y, q.x, q.y) === 1)) prep.add(e);
     }
     if (!prep.size) return;
-    this.prep = prep; this.bashing = false;
+    this.prep = prep; const bk = this.bashing; this.bashing = false;
     try {
       await this.doBlocks(2); if (this.over()) return;
       if (G.ball.carrier === c) await this.doBlitz(); if (this.over()) return;
       if (G.ball.carrier === c) await this.doBlocks(2);
-    } finally { this.prep = null; this.bashing = true; }
+    } finally { this.prep = null; this.bashing = bk; }
   }
   async position() {
     const c = G.ball.carrier;

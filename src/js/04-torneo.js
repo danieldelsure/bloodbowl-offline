@@ -98,5 +98,5 @@ async function bench(n, MkA, MkB, planA, planB) {
   }
   return r;
 }
-if (HEADLESS) globalThis.__BB = { throwTeammate, throwBomb, ballAndChain, RACE_ORDER, ROSTERS, PRESETS, FORMS, AI, AI2, AI2b, snapG, restoreG, runMatch, setSnapHook: f => { snapHook = f; }, newGame, bench, tAuto, tStandings, get TDC() { return TDC; }, TORNEOS, useT, simulate, checkInvariants, getG: () => G, setHook: f => { render = f; } };
+if (HEADLESS) globalThis.__BB = { DESAFIOS, playTurn, allPlayers, throwTeammate, throwBomb, ballAndChain, RACE_ORDER, ROSTERS, PRESETS, FORMS, AI, AI2, AI2b, snapG, restoreG, runMatch, setSnapHook: f => { snapHook = f; }, newGame, bench, tAuto, tStandings, get TDC() { return TDC; }, TORNEOS, useT, simulate, checkInvariants, getG: () => G, setHook: f => { render = f; } };
 

@@ -1374,20 +1374,29 @@ if (!HEADLESS) (function () {
       document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(); });
     }
   } catch (e) { }
+  /* galería de afiches: elige uno de los torneos (devuelve su id o null) */
+  async function pickTorneo() {
+    const cards = TORNEOS.map((t, k) => `<div class="gal-card" data-v="${k}" tabindex="0" role="button" aria-label="${t.name}"><img src="${ASSETS[t.poster]}" alt="Afiche ${t.name}"><b>${t.name}</b><span>${t.date} · ${t.teams.length} equipos · ${t.rounds} rondas</span></div>`).join('');
+    const v = await ask(`<h2>Torneos de Campeones</h2><p>Elige el torneo que quieres revivir.</p><div class="gal">${cards}</div>`, [{ label: 'Volver', value: -1 }], true, 'galbox', () => {
+      $('modalBody').querySelectorAll('.gal-card').forEach(el => el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); } }));
+    });
+    return v >= 0 && TORNEOS[v] ? TORNEOS[v].id : null;
+  }
   async function start() {
     for (;;) {
       const sv = load(), svT = sv && (TORNEOS.find(t => t.id === sv.tid) || TDC3);
       const ms = loadMatch();
-      const btn = [{ label: 'Aprender a jugar Blood Bowl', value: 'learn', primary: !sv && !ms }, ...TORNEOS.map(t => ({ label: t.name, value: 'new:' + t.id })), { label: 'Partido rápido', value: 'quick' }];
+      const btn = [{ label: 'Aprender a jugar Blood Bowl', value: 'learn', primary: !sv && !ms }, { label: 'Torneos de Campeones', value: 'tdcs' }, { label: 'Desafíos', value: 'chal' }, { label: 'Partido rápido', value: 'quick' }];
       btn.push({ label: 'Cargar archivo de guardado', value: 'imp' }); if (sv || ms) btn.push({ label: 'Descargar guardado', value: 'exp' });
       if (!pwa.standalone && (pwa.bip || pwa.ios)) btn.push({ label: 'Instalar app', value: 'inst' });
       if (ms) btn.unshift({ label: `Continuar partida (${ms.desc})`, value: 'cm', primary: true });
       if (sv && sv.round <= svT.rounds) btn.unshift({ label: `Continuar torneo (${svT.name.replace('Torneo de Campeones ', 'TdC ')}, ronda ${sv.round}, ${svT.teams[sv.me].name})`, value: 'cont', primary: true });
-      const c = await ask(`<img class="pst-img${(svT || TORNEOS[0]).land ? ' land' : ''}" src="${ASSETS[(svT || TORNEOS[0]).poster]}" alt="Afiche del Torneo de Campeones"><div class="pst-side"><div class="pst-k">BB Chile - El desafío</div><p>Juega contra la IA: revive el Torneo de Campeones III (2025), el II (2024) o el I (2023) con uno de sus equipos, o juega un partido suelto.</p><div id="modalBtns2"></div></div>`, btn, false, 'poster', () => {
-        /* al apuntar o tocar un torneo, el afiche cambia al de ese torneo */
-        const im = document.querySelector('#modalBox .pst-img'), bs = $('modalBtns').children;
-        btn.forEach((b, k) => { const t = String(b.value).startsWith('new:') && TORNEOS.find(x => 'new:' + x.id === b.value); if (t) ['mouseenter', 'focus', 'touchstart'].forEach(ev => bs[k].addEventListener(ev, () => { im.src = ASSETS[t.poster]; im.classList.toggle('land', !!t.land); }, { passive: true })); });
+      let c = await ask(`<img class="pst-img${(svT || TORNEOS[0]).land ? ' land' : ''}" src="${ASSETS[(svT || TORNEOS[0]).poster]}" alt="Afiche del Torneo de Campeones"><div class="pst-side"><div class="pst-k">BB Chile - El desafío</div><p>Juega contra la IA: revive el Torneo de Campeones III (2025), el II (2024) o el I (2023) con uno de sus equipos, o juega un partido suelto.</p><div id="modalBtns2"></div></div>`, btn, false, 'poster', () => {
+        /* cada tipo de juego con su color pastel */
+        const CL = { learn: 'g', tdcs: 'r', chal: 'b', quick: 'y' }, bs = $('modalBtns').children;
+        btn.forEach((b, k) => { if (CL[b.value]) bs[k].classList.add('mb-' + CL[b.value]); });
       });
+      if (c === 'tdcs') { const id = await pickTorneo(); if (!id) continue; c = 'new:' + id; }
       if (c === 'cm') {
         if (ms.mode === 'tdc') { const t = load(); if (t) { useT(t); await tournament(t, ms); } else { dropMatch(); await ask('<h2>Partida no disponible</h2><p>El torneo de esta partida ya no está guardado.</p>', [{ label: 'Volver al menú', value: 1, primary: true }]); } }
         else await quickMatch(ms);
@@ -1399,6 +1408,7 @@ if (!HEADLESS) (function () {
       else if (c === 'imp') await importSave();
       else if (c === 'exp') downloadSave();
       else if (c === 'learn') await tutorialCourse();
+      else if (c === 'chal') await tutorialCourse('chal');
       else if (c === 'quick') await quickMatch();
       else if (c === 'cont') await tournament(sv);
       else { useT({ tid: String(c).slice(4) }); if (sv && !(await ask('<h2>Torneo en curso</h2><p>Ya tienes un torneo guardado. Si empiezas uno nuevo se pierde.</p>', [{ label: 'Empezar uno nuevo', value: 1, primary: true }, { label: 'Volver', value: 0 }]))) continue; const st = await newTournament(); if (st) await tournament(st); }
