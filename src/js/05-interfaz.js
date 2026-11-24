@@ -359,7 +359,8 @@ if (!HEADLESS) (function () {
   function draw() {
     if (!G) return;
     ctx.imageSmoothingEnabled = true;
-    if (IMG.pitch.ok) ctx.drawImage(IMG.pitch, 1, 1, 780, 450, 0, 0, W * S, H * S);
+    const pimg = (G.weather !== 'nice' && IMG['pitch_' + G.weather] && IMG['pitch_' + G.weather].ok) ? IMG['pitch_' + G.weather] : IMG.pitch;   /* la cancha cambia con el clima, como en FFB */
+    if (pimg.ok) ctx.drawImage(pimg, 1, 1, 780, 450, 0, 0, W * S, H * S);
     else { ctx.fillStyle = '#2f7a37'; ctx.fillRect(0, 0, W * S, H * S); }
     /* paleta aguacate: aclara y calienta el césped sin tocar la textura */
     ctx.save(); ctx.globalCompositeOperation = 'screen'; ctx.fillStyle = '#8f9a52'; ctx.globalAlpha = 0.42; ctx.fillRect(0, 0, W * S, H * S); ctx.restore();
@@ -1266,7 +1267,7 @@ if (!HEADLESS) (function () {
     const med = ['#f2c230', '#c3c7cc', '#cd8a4b'];
     const top = TDC.real.slice(0, 3).map((r, k) => { const t = TDC.teams[r[0]]; return `<div class="rt-c c${k + 1}"><div class="rt-n">${k + 1}º</div><b>${t.name}</b><span>${t.race} · ${t.coach}</span><div class="rt-p">${r[1]} pts · ${r[2]}-${r[3]}-${r[4]}</div></div>`; }).join('');
     const rows = TDC.real.map((r, k) => { if (k < 3) return ''; const t = TDC.teams[r[0]]; return `<tr><td class="n">${k + 1}</td><td>${t.name}</td><td>${t.coach}</td><td>${t.race}</td><td class="n">${r[1]}</td><td class="n">${r[2]}-${r[3]}-${r[4]}</td><td class="n">${r[5]}-${r[6]}</td></tr>`; }).join('');
-    return `<h2>Así terminó el ${TDC.name}</h2><p class="sub" style="margin:0 0 10px">Tabla oficial del torneo real, 6 de diciembre de 2025. Ahora te toca intentar superarla.</p>
+    return `<h2>Así terminó el ${TDC.name}</h2><p class="sub" style="margin:0 0 10px">Tabla oficial del torneo real, ${TDC.date}. Ahora te toca intentar superarla.</p>
       <div class="rt-top">${top}</div>
       <table><tr><th class="n">#</th><th>Equipo</th><th>Entrenador</th><th>Raza</th><th class="n">Pts</th><th class="n">G-E-P</th><th class="n">TD</th></tr>${rows}</table>`;
   }
@@ -1288,7 +1289,7 @@ if (!HEADLESS) (function () {
     const first = order[0];
     const cards = order.map(i => { const t = TDC.teams[i]; return `<button class="tc${i === first ? ' on' : ''}" data-t="${i}"><div class="tc-art" style="background:${bg(i)}">${trioHtml(t, 64)}</div><b>${t.name}</b><i>${t.race}</i><em>${t.coach} · TV ${t.tv}</em></button>`; }).join('');
     let cur = first;
-    const pr = ask(`<h2>${TDC.name}</h2><p class="sub" style="margin:0 0 10px">Elige uno de los 16 equipos, tal como lo armó su entrenador, e intenta ganar el torneo. ${TDC.rounds} rondas en sistema suizo: la primera usa los cruces reales y las siguientes dependen de tu resultado y de los demás.</p>
+    const pr = ask(`<h2>${TDC.name}</h2><p class="sub" style="margin:0 0 10px">Elige uno de los ${TDC.teams.length} equipos, tal como lo armó su entrenador, e intenta ganar el torneo. ${TDC.rounds} rondas en sistema suizo: la primera usa los cruces reales y las siguientes dependen de tu resultado y de los demás.</p>
       <div class="tp-mode">Modo de juego<div class="modeopt"><label><input type="radio" name="mode" value="p" checked>Jugador: tú mueves a tu equipo</label><label><input type="radio" name="mode" value="m">Manager: defines la táctica y la IA juega</label></div></div>
       <div class="tp"><div class="tp-grid">${cards}</div><div class="tp-side"><div id="rosterPrev">${rosterHtml(first)}</div></div></div>`,
       [{ label: 'Empezar torneo', value: 1, primary: true }, { label: 'Volver', value: 0 }], true, 'teams', () => {
@@ -1300,6 +1301,7 @@ if (!HEADLESS) (function () {
     const st = tNew(cur); st.mgr = document.querySelector('input[name=mode]:checked').value === 'm'; save(st); return st;
   }
   async function tournament(st, rs) {
+    useT(st);
     while (st.round <= TDC.rounds) {
       if (!st.pair || !st.pair.length) { st.pair = tPairings(st); save(st); }
       const mine = st.pair.find(p => p[0] === st.me || p[1] === st.me), opp = mine[0] === st.me ? mine[1] : mine[0], o = tn(opp);
@@ -1374,16 +1376,20 @@ if (!HEADLESS) (function () {
   } catch (e) { }
   async function start() {
     for (;;) {
-      const sv = load();
+      const sv = load(), svT = sv && (TORNEOS.find(t => t.id === sv.tid) || TDC3);
       const ms = loadMatch();
-      const btn = [{ label: 'Aprender a jugar Blood Bowl', value: 'learn', primary: !sv && !ms }, { label: TDC.name, value: 'new' }, { label: 'Partido rápido', value: 'quick' }];
+      const btn = [{ label: 'Aprender a jugar Blood Bowl', value: 'learn', primary: !sv && !ms }, ...TORNEOS.map(t => ({ label: t.name, value: 'new:' + t.id })), { label: 'Partido rápido', value: 'quick' }];
       btn.push({ label: 'Cargar archivo de guardado', value: 'imp' }); if (sv || ms) btn.push({ label: 'Descargar guardado', value: 'exp' });
       if (!pwa.standalone && (pwa.bip || pwa.ios)) btn.push({ label: 'Instalar app', value: 'inst' });
       if (ms) btn.unshift({ label: `Continuar partida (${ms.desc})`, value: 'cm', primary: true });
-      if (sv && sv.round <= TDC.rounds) btn.unshift({ label: `Continuar torneo (ronda ${sv.round}, ${tn(sv.me).name})`, value: 'cont', primary: true });
-      const c = await ask(`<img class="pst-img" src="${ASSETS.poster}" alt="Afiche del Torneo de Campeones"><div class="pst-side"><div class="pst-k">BB Chile - El desafío</div><p>Juega contra la IA: revive el ${TDC.name} con uno de sus 16 equipos, o juega un partido suelto.</p><div id="modalBtns2"></div></div>`, btn, false, 'poster');
+      if (sv && sv.round <= svT.rounds) btn.unshift({ label: `Continuar torneo (${svT.name.replace('Torneo de Campeones ', 'TdC ')}, ronda ${sv.round}, ${svT.teams[sv.me].name})`, value: 'cont', primary: true });
+      const c = await ask(`<img class="pst-img${(svT || TORNEOS[0]).land ? ' land' : ''}" src="${ASSETS[(svT || TORNEOS[0]).poster]}" alt="Afiche del Torneo de Campeones"><div class="pst-side"><div class="pst-k">BB Chile - El desafío</div><p>Juega contra la IA: revive el Torneo de Campeones III (2025), el II (2024) o el I (2023) con uno de sus equipos, o juega un partido suelto.</p><div id="modalBtns2"></div></div>`, btn, false, 'poster', () => {
+        /* al apuntar o tocar un torneo, el afiche cambia al de ese torneo */
+        const im = document.querySelector('#modalBox .pst-img'), bs = $('modalBtns').children;
+        btn.forEach((b, k) => { const t = String(b.value).startsWith('new:') && TORNEOS.find(x => 'new:' + x.id === b.value); if (t) ['mouseenter', 'focus', 'touchstart'].forEach(ev => bs[k].addEventListener(ev, () => { im.src = ASSETS[t.poster]; im.classList.toggle('land', !!t.land); }, { passive: true })); });
+      });
       if (c === 'cm') {
-        if (ms.mode === 'tdc') { const t = load(); if (t) await tournament(t, ms); else { dropMatch(); await ask('<h2>Partida no disponible</h2><p>El torneo de esta partida ya no está guardado.</p>', [{ label: 'Volver al menú', value: 1, primary: true }]); } }
+        if (ms.mode === 'tdc') { const t = load(); if (t) { useT(t); await tournament(t, ms); } else { dropMatch(); await ask('<h2>Partida no disponible</h2><p>El torneo de esta partida ya no está guardado.</p>', [{ label: 'Volver al menú', value: 1, primary: true }]); } }
         else await quickMatch(ms);
       }
       else if (c === 'inst') {
@@ -1395,7 +1401,7 @@ if (!HEADLESS) (function () {
       else if (c === 'learn') await tutorialCourse();
       else if (c === 'quick') await quickMatch();
       else if (c === 'cont') await tournament(sv);
-      else { if (sv && !(await ask('<h2>Torneo en curso</h2><p>Ya tienes un torneo guardado. Si empiezas uno nuevo se pierde.</p>', [{ label: 'Empezar uno nuevo', value: 1, primary: true }, { label: 'Volver', value: 0 }]))) continue; const st = await newTournament(); if (st) await tournament(st); }
+      else { useT({ tid: String(c).slice(4) }); if (sv && !(await ask('<h2>Torneo en curso</h2><p>Ya tienes un torneo guardado. Si empiezas uno nuevo se pierde.</p>', [{ label: 'Empezar uno nuevo', value: 1, primary: true }, { label: 'Volver', value: 0 }]))) continue; const st = await newTournament(); if (st) await tournament(st); }
     }
   }
   start();

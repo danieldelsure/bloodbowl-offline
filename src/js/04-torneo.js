@@ -2,7 +2,11 @@
    Torneo
    ===================================================================== */
 /*TOURNEY*/
-function tNew(me) { return { me, round: 1, res: [], pair: [] }; }
+/* torneos reales disponibles; TDC es el que está en juego (se cambia con useT al elegir o continuar uno) */
+const TORNEOS = [TDC3, TDC2, TDC1];
+let TDC = TDC3;
+function useT(st) { TDC = TORNEOS.find(t => t.id === (st && st.tid)) || TDC3; }
+function tNew(me) { return { me, round: 1, res: [], pair: [], tid: TDC.id }; }
 function tStandings(st) {
   const n = TDC.teams.length, rows = Array.from({ length: n }, (_, i) => ({ i, pts: 0, w: 0, d: 0, l: 0, tf: 0, ta: 0, cas: 0, opp: [], bh: 0 }));
   for (const rd of st.res) for (const [a, b, sa, sb, ca, cb] of rd) {
@@ -47,7 +51,7 @@ async function tAuto() {   // torneo completo jugado por la IA (pruebas)
   const st = tNew(d(TDC.teams.length) - 1);
   for (; st.round <= TDC.rounds; st.round++) {
     const pr = tPairings(st), rd = [];
-    if (pr.length !== 8 || new Set(pr.flat()).size !== 16) throw new Error('emparejamiento inválido');
+    if (pr.length * 2 !== TDC.teams.length || new Set(pr.flat()).size !== TDC.teams.length) throw new Error('emparejamiento inválido');
     for (const [a, b] of pr) rd.push(await tSimMatch(a, b));
     st.res.push(rd);
   }
@@ -94,5 +98,5 @@ async function bench(n, MkA, MkB, planA, planB) {
   }
   return r;
 }
-if (HEADLESS) globalThis.__BB = { throwTeammate, throwBomb, ballAndChain, RACE_ORDER, ROSTERS, PRESETS, FORMS, AI, AI2, AI2b, snapG, restoreG, runMatch, setSnapHook: f => { snapHook = f; }, newGame, bench, tAuto, tStandings, TDC, simulate, checkInvariants, getG: () => G, setHook: f => { render = f; } };
+if (HEADLESS) globalThis.__BB = { throwTeammate, throwBomb, ballAndChain, RACE_ORDER, ROSTERS, PRESETS, FORMS, AI, AI2, AI2b, snapG, restoreG, runMatch, setSnapHook: f => { snapHook = f; }, newGame, bench, tAuto, tStandings, get TDC() { return TDC; }, TORNEOS, useT, simulate, checkInvariants, getG: () => G, setHook: f => { render = f; } };
 

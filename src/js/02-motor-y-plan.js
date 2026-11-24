@@ -276,7 +276,10 @@ async function knockDown(p, o) {   // devuelve true si el jugador realmente cae
   const a = d6(), b = d6(); let ar = a + b + (has(p, 'Chainsaw') && !ihs ? 3 : 0), mb = !!o.mb && !ihs, broke = ar >= p.av, note = '';
   await fxD6(p, 'Armadura', p.av, [a, b], null, `Armadura ${p.av}+ · ${ar}: ${broke ? 'se rompe' : 'aguanta'}`);
   if (!broke && o.claws && !ihs && ar >= 8) { broke = true; note = ' (Claws)'; }
-  if (!broke && mb && ar + 1 >= p.av) { broke = true; mb = false; note = ' (+1 Mighty Blow)'; }
+  const cb = !!o.crush && !!o.by && !o.by.crushUsed && !ihs;
+  if (!broke && cb && ar + 1 >= p.av) { broke = true; o.by.crushUsed = true; note = ' (Crushing Blow +1)'; }
+  else if (!broke && mb && ar + 1 >= p.av) { broke = true; mb = false; note = ' (+1 Mighty Blow)'; }
+  else if (!broke && cb && mb && ar + 2 >= p.av) { broke = true; mb = false; o.by.crushUsed = true; note = ' (Crushing Blow +1 y Mighty Blow +1)'; }
   log(`${nm(p)} cae. Armadura ${p.av}+: ${a}+${b}${note} ${broke ? 'rota' : 'aguanta'}`, 't' + p.team);
   if (!broke) await fxBanner('say', null, { title: 'Derribado', text: nm(p), c: G.teams[p.team].color, ms: 750, tut: true });
   if (ihs && (o.mb || o.claws)) log(`${nm(p)} tiene Iron Hard Skin: no se aplican modificadores a su armadura`, 't' + p.team);
@@ -363,6 +366,7 @@ function finish(p) {
   if (p.stall && G.ball.carrier === p && G.td == null) G.pendingStall = p;
   if (p.bite) { p.bite = false; G.pendingBite = p; }
   p.stall = false; p.used = true; if (G.cur === p) G.cur = null;
+  if (p.tempFrenzy) { p.tempFrenzy = false; p.skills.delete('Frenzy'); }
 }
 /* Bloodlust: al terminar la activación hay que morder a un Thrall adyacente; si no, turnover y se queda distraído */
 async function resolveBite() {
@@ -408,6 +412,8 @@ async function begin(p, action) {
   }
   p.stall = G.ball.carrier === p && !has(p, 'Bone Head') && !has(p, 'Really Stupid') && freeScore(p);
   G.cur = p; p.action = action; p.started = true; p.distracted = false; p.gouged = false; p.maLeft = p.ma; p.rushes = 0; p.blitzBlocked = false; p.fumble = false; p.gng = false;
+  p.dervUsed = false;
+  if (action === 'blitz' && has(p, 'Frenzied Rush') && !p.rushUsed && !has(p, 'Frenzy')) { p.rushUsed = true; p.skills.add('Frenzy'); p.tempFrenzy = true; log(`${nm(p)} se enfurece (Frenzied Rush): tiene Frenzy en este Blitz`, 't' + p.team); }
   if (action === 'blitz') G.blitzUsed = true; if (action === 'pass') G.passUsed = true; if (action === 'handoff') G.handUsed = true;
   if (action === 'foul') G.foulUsed = true; if (action === 'secure') G.secureUsed = true; if (action === 'ttm') { if (has(p, 'Kick Team-mate') && !has(p, 'Throw Team-mate')) G.kickUsed = true; else G.ttmUsed = true; } if (action === 'punt') G.puntUsed = true;
   if (has(p, 'Bone Head')) {
@@ -755,7 +761,7 @@ async function block(att, def, follow, o) {
       await placeProne(def); await placeProne(att);
     } else {
       if (aB && dB) log('Los dos tienen Block: nadie cae');
-      if (!dB) await knockDown(def, { mb: mbA, claws, by: att });
+      if (!dB) await knockDown(def, { mb: mbA, claws, by: att, crush: has(att, 'Crushing Blow') });
       if (!aB) await knockDown(att);
     }
   } else {
@@ -765,7 +771,7 @@ async function block(att, def, follow, o) {
     if (!forced && has(def, 'Taunt') && !isFirm(def, jug) && await dctl.confirm('taunt', `${nm(def)} tiene Taunt. ¿Obligar a ${nm(att)} a seguirlo tras el empujón?`, def)) { forced = true; log(`${nm(def)} provoca a ${nm(att)} (Taunt): debe seguirlo`, 't' + def.team); }
     const noFollow = has(def, 'Fend') && !jug && !o.bc;   // Bola y cadena debe seguir siempre que empuje: Fend no lo detiene
     const fx = def.x, fy = def.y;
-    const res = await pushBack(def, att.x, att.y, actl, jug, has(att, 'Grab'));
+    const res = await pushBack(def, att.x, att.y, actl, jug, has(att, 'Grab') && !att.tempFrenzy);
     if (res !== 'stay' && has(att, 'Eye Gouge') && def.loc === 'pitch') { def.gouged = true; log(`${nm(att)} le mete los dedos en los ojos (Eye Gouge): ${nm(def)} no da asistencias hasta que se active`, 't' + att.team); }
     if (res !== 'stay' && !att.rooted && att.loc === 'pitch' && att.state === 'standing' && !playerAt(fx, fy)) {
       if (noFollow) log(`${nm(def)} mantiene la distancia (Fend): no se puede seguir`, 't' + def.team);
@@ -775,7 +781,7 @@ async function block(att, def, follow, o) {
       } else log(`${nm(att)} se queda en su casilla`, 't' + att.team);
     }
     if (res === 'ok' && def.loc === 'pitch' && has(att, 'Strip Ball') && G.ball.carrier === def && !has(def, 'Sure Hands') && !has(def, 'Monstrous Mouth')) { log(`${nm(att)} le arranca el balón a ${nm(def)} (Strip Ball)`, 't' + att.team); G.ball.carrier = null; G.ball.x = def.x; G.ball.y = def.y; await bounceBall(def.x, def.y); }
-    if (res !== 'crowd' && down) await knockDown(def, { mb: mbA, claws, by: att });
+    if (res !== 'crowd' && down) await knockDown(def, { mb: mbA, claws, by: att, crush: has(att, 'Crushing Blow') });
     if (has(att, 'Frenzy') && !o.second && !G.turnover && G.td == null && att.loc === 'pitch' && att.state === 'standing' && def.loc === 'pitch' && def.state === 'standing' && cheb(att.x, att.y, def.x, def.y) === 1) {
       let can = true;
       if (blitz) {
@@ -1011,7 +1017,7 @@ async function saw(p, e) {
   if (!(await foulAppearance(p, e))) { finish(p); render(); return; }
   const r = d6();
   if (r === 1) { log(`${nm(p)}: la motosierra rebota (1)`, 'bad'); await knockDown(p); finish(p); render(); return; }
-  const ihs = has(e, 'Iron Hard Skin'), bonus = ihs ? 0 : 3;
+  const ihs = has(e, 'Iron Hard Skin'), bonus = ihs ? 0 : has(p, 'Ghostly Flames') ? 4 : 3;
   await dumpOff(e);
   const a = d6(), b = d6(), broke = a + b + bonus >= e.av, had = G.ball.carrier === e, sx = e.x, sy = e.y;
   await fxD6(e, 'Armadura', e.av, [a, b], null, `Armadura ${e.av}+ · ${a + b}+${bonus}: ${broke ? 'se rompe' : 'aguanta'}`);
@@ -1059,7 +1065,15 @@ async function ballAndChain(p) {
     /* regla: el entrenador elige hacia dónde apunta la plantilla de lanzamiento (arriba, abajo o hacia una banda) y luego un D6 decide: 1-2 una diagonal, 3-4 recto, 5-6 la otra diagonal */
     const [fx, fy] = await G.teams[p.team].ctrl.chooseBCFacing(p);
     const rb = d6(), side = fx === 0 ? [[-1, fy], [1, fy]] : [[fx, -1], [fx, 1]];
-    const [dx, dy] = rb <= 2 ? side[0] : rb <= 4 ? [fx, fy] : side[1], nx = p.x + dx, ny = p.y + dy;
+    let rbF = rb, [dx, dy] = rb <= 2 ? side[0] : rb <= 4 ? [fx, fy] : side[1], nx = p.x + dx, ny = p.y + dy;
+    if (has(p, 'Whirling Dervish') && !p.dervUsed) {
+      const bad = (x, y) => !inPitch(x, y) || (playerAt(x, y) && playerAt(x, y).team === p.team);
+      if (bad(nx, ny)) {
+        p.dervUsed = true; rbF = d6();
+        [dx, dy] = rbF <= 2 ? side[0] : rbF <= 4 ? [fx, fy] : side[1]; nx = p.x + dx; ny = p.y + dy;
+        log(`${nm(p)} da una vuelta de más (Whirling Dervish) y repite la tirada: ${rbF}`, 't' + p.team);
+      }
+    }
     log(`${nm(p)} apunta ${BC_FACE[fx + ',' + fy]} y saca ${rb}: ${rb <= 2 || rb >= 5 ? 'diagonal' : 'recto'}`, 't' + p.team);
     if (!inPitch(nx, ny)) { log(`${nm(p)} se sale del campo`, 'bad'); await crowdPush(p, nx, ny); break; }
     const q = playerAt(nx, ny);

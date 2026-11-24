@@ -495,3 +495,7 @@ body.mob #cartel .fch button{padding:4px 8px!important;font-size:12px!important;
 #modalBox .tm-sec button.ok{color:#1d7a3a}
 #modalBox .tm-hd button{background:var(--ink);color:var(--bone);font-weight:700;text-align:center;margin-top:4px}
 @media (max-width:760px){.tm-grid{grid-template-columns:1fr}}
+
+/* afiche horizontal (Torneo I, 2023) */
+.pst-img.land{height:auto;width:min(66vw,820px);max-height:88vh;object-fit:contain;align-self:center;background:var(--ink)}
+body.mob .pst-img.land{width:min(56vw,640px);max-height:92vh}
