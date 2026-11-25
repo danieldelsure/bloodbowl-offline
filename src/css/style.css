@@ -541,3 +541,5 @@ body.mob .gal{grid-template-columns:repeat(3,1fr);gap:8px}body.mob .gal-card img
 .gal-card.soon{cursor:default;filter:grayscale(1);opacity:.55}
 .gal-card.soon:hover{transform:none;box-shadow:none}
 .tm-l.lock .soonb{background:#8a8478;color:#fff}
+.tm-l .stars{font-style:normal;margin-left:8px;color:#c98a00;letter-spacing:1px;font-size:.9em}
+.ct-stars{color:#c98a00;letter-spacing:2px}

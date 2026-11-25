@@ -6,6 +6,28 @@
   const DONE_KEY = 'bbTutDone';
   const tutDoneGet = () => { try { return JSON.parse(localStorage.getItem(DONE_KEY) || '[]'); } catch (e) { return []; } };
   function tutDoneMark(t) { try { const d = tutDoneGet(); if (!d.includes(t)) { d.push(t); localStorage.setItem(DONE_KEY, JSON.stringify(d)); } } catch (e) { /* sin almacenamiento */ } }
+  const STAR_KEY = 'bbChalStars';
+  const starsGet = () => { try { return JSON.parse(localStorage.getItem(STAR_KEY) || '{}') || {}; } catch (e) { return {}; } };
+  function starsMark(t, n) { try { const d = starsGet(); if ((d[t] || 0) < n) { d[t] = n; localStorage.setItem(STAR_KEY, JSON.stringify(d)); } } catch (e) { /* sin almacenamiento */ } }
+  const starsFor = tries => tries <= 1 ? 3 : tries <= 3 ? 2 : 1;
+  const starTxt = n => '★'.repeat(n) + '☆'.repeat(3 - n);
+  function chalProgressDownload() {
+    const o = { app: 'bbchile', v: 1, tipo: 'desafios', t: Date.now(), done: tutDoneGet(), stars: starsGet() };
+    const d = new Date(), z = n => String(n).padStart(2, '0');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(o)], { type: 'application/json' }));
+    a.download = `bbchile-desafios-${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}.json`;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }
+  async function chalProgressLoad() {
+    const txt = await pickFile(); if (txt == null) return;
+    let o = null; try { o = JSON.parse(txt); } catch (e) {}
+    if (!o || o.app !== 'bbchile' || o.tipo !== 'desafios' || !Array.isArray(o.done) || typeof o.stars !== 'object') { await ask('<h2>Archivo no válido</h2><p>Ese archivo no es un progreso de desafíos de este juego.</p>', [{ label: 'Volver', value: 1, primary: true }]); return; }
+    const titles = new Set(LESSONS.map(l => l.title));
+    o.done.filter(t => titles.has(t)).forEach(tutDoneMark);
+    Object.keys(o.stars).filter(t => titles.has(t)).forEach(t => starsMark(t, Math.max(1, Math.min(3, +o.stars[t] || 0))));
+    await ask('<h2>Progreso cargado</h2><p>Se sumó a lo que ya tenías: queda lo mejor de cada desafío.</p>', [{ label: 'Listo', value: 1, primary: true }]);
+  }
   const tut = { on: false, L: null, i: 0, state: 'idle', timer: null, res: null, hide: false };
   const TP = (team, sheet, x, y) => {
     const p = G.teams[team].players.find(q => q.sheet === sheet && q.loc === 'reserve');
@@ -435,11 +457,12 @@
     if (ui.phase === 'turn') { ui.phase = 'idle'; ui.sel = null; ui.moves = new Map(); ui.turnRes = null; refresh(); card(null); }
     if (r === 'won') {
       tutDoneMark(tut.L.title);
+      const nStar = tut.L.chal ? starsFor(tut.tries || 1) : 0; if (nStar) starsMark(tut.L.title, nStar);
       (async () => {
         if (G.td != null) await fxBanner('say', null, { title: '¡Touchdown!', text: G.teams[G.td].name + ' anota', c: G.teams[G.td].color, ms: 1300 });
-        await fxBanner('say', null, { title: tut.L.chal ? '¡Desafío superado!' : '¡Lección superada!', text: tut.L.title, c: '#ffd23f', ms: 1500 });
+        await fxBanner('say', null, { title: tut.L.chal ? '¡Desafío superado!' : '¡Lección superada!', text: tut.L.chal ? tut.L.title + '  ' + starTxt(nStar) : tut.L.title, c: '#ffd23f', ms: 1500 });
       })();
-      $('ctStep').innerHTML = `<b class="ct-ok">${G.turnover ? 'Hubo turnover, pero ya viste cómo funciona.' : '¡Muy bien!'}</b> ${typeof tut.L.done === 'function' ? tut.L.done(tut.o) : tut.L.done}`;
+      $('ctStep').innerHTML = `<b class="ct-ok">${G.turnover ? 'Hubo turnover, pero ya viste cómo funciona.' : '¡Muy bien!'}</b>${nStar ? ` <b class="ct-stars">${starTxt(nStar)}</b> ${nStar === 3 ? 'A la primera.' : 'Intentos: ' + tut.tries + '.'}` : ''} ${typeof tut.L.done === 'function' ? tut.L.done(tut.o) : tut.L.done}`;
       $('ctNext').hidden = false; $('ctRetry').textContent = 'Repetir';
       msg(tut.L.chal ? '<b>Desafío superado.</b> Aprieta "Siguiente" en el cartel.' : '<b>Lección completada.</b> Aprieta "Siguiente" en el cartel.');
     } else if (r === 'fail') {
@@ -492,7 +515,7 @@
   }
   function tutTipHide() { const c = $('cartel'); c.hidden = true; c.classList.remove('tip'); }
   function tutSetup() {
-    const L = tut.L;
+    const L = tut.L; tut.tries = (tut.tries || 0) + 1;
     newGame(L.races ? L.races[0] : 'human', L.races ? L.races[1] : 'orc');
     G.teams[0].ctrl = new Human(0); G.teams[1].ctrl = new AI2(1);
     G.teams.forEach(t => { t.rerolls = L.rr || 0; t.rrMax = L.rr || 0; t.ff = 3; });
@@ -515,7 +538,7 @@
     $('ctT').textContent = L.title; $('ctX').innerHTML = typeof L.intro === 'function' ? L.intro() : L.intro;
   }
   function runLesson(i) {
-    tut.i = i; if (!tut.list) { tut.list = LESSONS.map((l, k) => k); tut.pos = i; } tut.L = LESSONS[i]; tutCartel(); tutSetup();
+    tut.i = i; if (!tut.list) { tut.list = LESSONS.map((l, k) => k); tut.pos = i; } tut.L = LESSONS[i]; tut.tries = 0; tutCartel(); tutSetup();
     return new Promise(res => { tut.res = res; });
   }
   /* secciones del menú del tutorial (por título de lección) */
@@ -538,12 +561,12 @@
     return out;
   }
   function tutMenu() {
-    const done = tutDoneGet(), secs = tutSections();
-    const html = (tutChal ? `<h2>Desafíos</h2><p class="sub" style="margin:0 0 10px">Situaciones de <b>un solo turno</b> con distintas razas: anotar, o evitar que anoten.${CHAL_SOON ? " <b>Se abren pronto.</b>" : ""} Los primeros traen pista en el cartel; puedes reintentar las veces que quieras. Los superados quedan marcados con ✓.</p>` : `<h2>Aprender a jugar</h2><p class="sub" style="margin:0 0 10px">Elige una sección o una lección suelta. Con "Curso completo" las ves todas en orden. Las que ya superaste quedan marcadas con ✓.</p>`) +
+    const done = tutDoneGet(), secs = tutSections(), stars = starsGet();
+    const html = (tutChal ? `<h2>Desafíos</h2><p class="sub" style="margin:0 0 10px">Situaciones de <b>un solo turno</b> con distintas razas: anotar, o evitar que anoten.${CHAL_SOON ? " <b>Se abren pronto.</b>" : ""} Los primeros traen pista en el cartel; puedes reintentar las veces que quieras. Los superados quedan marcados con ✓ y ganas hasta 3 estrellas: ★★★ a la primera, ★★ con 2 o 3 intentos, ★ con más. <b>${chalIds().reduce((a, i) => a + (stars[LESSONS[i].title] || 0), 0)} de ${chalIds().length * 3} ★</b>. Tu progreso queda en este navegador; puedes descargarlo y cargarlo en otro.</p>` : `<h2>Aprender a jugar</h2><p class="sub" style="margin:0 0 10px">Elige una sección o una lección suelta. Con "Curso completo" las ves todas en orden. Las que ya superaste quedan marcadas con ✓.</p>`) +
       '<div class="tm-grid">' + secs.map((sc, k) => `<div class="tm-sec ${tutChal ? 'chal' : ({ 'Básico': 'lv-g', 'Intermedio': 'lv-y', 'Avanzado': 'lv-r' })[sc.name] || ''}"><div class="tm-hd"><b>${sc.name}</b><span>${sc.sub}</span><button ${tutChal && CHAL_SOON ? 'disabled style="opacity:.45;cursor:default"' : `data-v="${1000 + k}"`}>${tutChal && CHAL_SOON ? 'Pronto' : 'Ver sección'}</button></div>` +
-        sc.ids.map(i => tutChal && CHAL_SOON ? `<button class="tm-l lock" disabled>${LESSONS[i].title}<i class="lvb soonb">Pronto</i></button>` : tutChal && !chalOpen(i) ? `<button class="tm-l lock" disabled title="Supera el desafío anterior para abrirlo">🔒 ${LESSONS[i].title}${LESSONS[i].level ? `<i class="lvb ${({ 'Fácil': 'lv-g', 'Medio': 'lv-y', 'Difícil': 'lv-r' })[LESSONS[i].level]}">${LESSONS[i].level}</i>` : ''}</button>` : `<button class="tm-l${done.includes(LESSONS[i].title) ? ' ok' : ''}" data-v="${i}">${done.includes(LESSONS[i].title) ? '✓ ' : ''}${LESSONS[i].title}${LESSONS[i].level ? `<i class="lvb ${({ 'Fácil': 'lv-g', 'Medio': 'lv-y', 'Difícil': 'lv-r' })[LESSONS[i].level]}">${LESSONS[i].level}</i>` : ''}</button>`).join('') + '</div>').join('') + '</div>'
+        sc.ids.map(i => tutChal && CHAL_SOON ? `<button class="tm-l lock" disabled>${LESSONS[i].title}<i class="lvb soonb">Pronto</i></button>` : tutChal && !chalOpen(i) ? `<button class="tm-l lock" disabled title="Supera el desafío anterior para abrirlo">🔒 ${LESSONS[i].title}${LESSONS[i].level ? `<i class="lvb ${({ 'Fácil': 'lv-g', 'Medio': 'lv-y', 'Difícil': 'lv-r' })[LESSONS[i].level]}">${LESSONS[i].level}</i>` : ''}</button>` : `<button class="tm-l${done.includes(LESSONS[i].title) ? ' ok' : ''}" data-v="${i}">${done.includes(LESSONS[i].title) ? '✓ ' : ''}${LESSONS[i].title}${tutChal && stars[LESSONS[i].title] ? `<i class="stars">${starTxt(stars[LESSONS[i].title])}</i>` : ''}${LESSONS[i].level ? `<i class="lvb ${({ 'Fácil': 'lv-g', 'Medio': 'lv-y', 'Difícil': 'lv-r' })[LESSONS[i].level]}">${LESSONS[i].level}</i>` : ''}</button>`).join('') + '</div>').join('') + '</div>'
     const html2 = html + '<p class="sub" style="margin:10px 0 0">Para ligas y partidas competitivas contra otras personas: <a href="https://fumbbl.com" target="_blank" rel="noopener"><b>fumbbl.com</b></a></p>';
-    return ask(html2, [{ label: tutChal ? 'Todos en orden' : 'Curso completo', value: 2000, primary: true, soon: tutChal && CHAL_SOON }, ...(tutChal ? [] : [{ label: 'Partido de medio tiempo', value: 3000 }]), { label: 'Volver al menú', value: 4000 }], true, 'teams' + (tutChal ? ' chalmenu' : ''));
+    return ask(html2, [{ label: tutChal ? 'Todos en orden' : 'Curso completo', value: 2000, primary: true, soon: tutChal && CHAL_SOON }, ...(tutChal ? [{ label: 'Descargar progreso', value: 5000 }, { label: 'Cargar progreso', value: 5001 }] : [{ label: 'Partido de medio tiempo', value: 3000 }]), { label: 'Volver al menú', value: 4000 }], true, 'teams' + (tutChal ? ' chalmenu' : ''));
   }
   const FUMBBL_P = '<p>Este juego sirve para aprender y practicar contra la IA. Si quieres <b>ligas, torneos y partidas competitivas</b> contra otras personas, te recomiendo <b>fumbbl.com</b>, la comunidad online gratuita de Blood Bowl.</p>';
   async function tutFumbbl(titulo) {
@@ -571,6 +594,8 @@
       clearInterval(tut.timer); tut.state = 'idle'; ui.tutHl = null; ui.phase = 'idle'; ui.sel = null; tutTipHide(); $('cartel').hidden = true; draw();
       const v = await tutMenu();
       if (v === 4000) { out = 'exit'; break; }
+      if (v === 5000) { chalProgressDownload(); continue; }
+      if (v === 5001) { await chalProgressLoad(); continue; }
       if (v === 3000) { out = 'done'; full = true; break; }
       let list, name = '';
       if (v === 2000) { list = tutSections().flatMap(sc => sc.ids); name = 'Curso completo'; }
