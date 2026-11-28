@@ -1375,7 +1375,7 @@ if (!HEADLESS) (function () {
     }
   } catch (e) { }
   /* galería de afiches: elige uno de los torneos (devuelve su id o null) */
-  const TDC_PRONTO = ['tdc2', 'tdc1']; /* en main: ['tdc2', 'tdc1'] (torneos en gris, sin acceso) */
+  const TDC_PRONTO = []; /* en main: ['tdc2', 'tdc1'] (torneos en gris, sin acceso) */
   async function pickTorneo() {
     const cards = TORNEOS.map((t, k) => `<div class="gal-card${!TDC_PRONTO.includes(t.id) ? '' : ' soon'}"${!TDC_PRONTO.includes(t.id) ? ` data-v="${k}" tabindex="0" role="button"` : ' aria-disabled="true"'} aria-label="${t.name}"><img src="${ASSETS[t.poster]}" alt="Afiche ${t.name}"><b>${t.name}</b><span>${!TDC_PRONTO.includes(t.id) ? `${t.date} · ${t.teams.length} equipos · ${t.rounds} rondas` : `${t.date} · Pronto`}</span></div>`).join('');
     const v = await ask(`<h2>Torneos de Campeones</h2><p>Elige el torneo que quieres revivir.</p><div class="gal">${cards}</div>`, [{ label: 'Volver', value: -1 }], true, 'galbox', () => {
